@@ -44,7 +44,7 @@ npm test
 npm run dev
 ```
 
-Requires a sibling checkout of `repodoctor-contracts` (file dependency).
+Uses a vendored copy of `@repodoctor/contracts` in `vendor/contracts` (no sibling checkout required).
 
 ## Testing
 
@@ -53,10 +53,7 @@ Vitest + Fastify `inject`. Tests run without production Cloudflare/Supabase cred
 ## Docker
 
 ```bash
-mkdir -p /tmp/ctx/service /tmp/ctx/contracts
-cp -a . /tmp/ctx/service
-cp -a ../repodoctor-contracts /tmp/ctx/contracts
-docker build -f Dockerfile -t ghcr.io/repodoctor/repodoctor-gateway:local /tmp/ctx
+docker build -t ghcr.io/repodoctor/repodoctor-gateway:local .
 ```
 
 ## Deployment

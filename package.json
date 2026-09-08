@@ -29,7 +29,7 @@
     "@opentelemetry/auto-instrumentations-node": "^0.62.1",
     "@opentelemetry/exporter-trace-otlp-http": "^0.203.0",
     "@opentelemetry/sdk-node": "^0.203.0",
-    "@repodoctor/contracts": "file:../repodoctor-contracts",
+    "@repodoctor/contracts": "file:./vendor/contracts",
     "@supabase/supabase-js": "^2.57.4",
     "jose": "^6.1.0",
     "dotenv": "^16.6.1",

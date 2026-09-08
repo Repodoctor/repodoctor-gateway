@@ -1,5 +1,7 @@
 node_modules/
 dist/
+!vendor/contracts/dist/
+!vendor/contracts/dist/**
 coverage/
 .env
 *.log
