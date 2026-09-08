@@ -1,12 +1,16 @@
 import fp from 'fastify-plugin';
 import type { FastifyPluginAsync } from 'fastify';
-import { UnauthenticatedError } from '@repodoctor/contracts';
+import { readServiceToken, UnauthenticatedError, verifyServiceJwt } from '@repodoctor/contracts';
 
 const serviceAuthPlugin: FastifyPluginAsync = async (fastify) => {
   fastify.decorate('verifyServiceToken', async (request: { headers: Record<string, unknown> }) => {
-    const header = request.headers['x-service-token'];
-    const token = Array.isArray(header) ? header[0] : header;
-    if (token !== fastify.config.serviceAuthToken) {
+    const token = readServiceToken(request.headers);
+    if (!token) {
+      throw new UnauthenticatedError('Invalid service token');
+    }
+    try {
+      await verifyServiceJwt(token, fastify.config.internalServiceToken);
+    } catch {
       throw new UnauthenticatedError('Invalid service token');
     }
   });

@@ -26,7 +26,7 @@ export function buildApp(config: AppConfig): FastifyInstance {
       config.nodeEnv === 'test'
         ? false
         : {
-            level: config.nodeEnv === 'production' ? 'info' : 'debug',
+            level: config.logLevel,
           },
     genReqId: () => '',
   });

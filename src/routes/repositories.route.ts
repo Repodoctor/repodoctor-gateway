@@ -25,10 +25,10 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       const principal = await fastify.authenticate(request);
       await fastify.organizationService.get(principal.userId, request.params.organizationId, 'MEMBER');
       const result = await callService({
-        baseUrl: fastify.config.scmBaseUrl,
+        baseUrl: fastify.config.scmServiceUrl,
         path: '/internal/installations/github',
         method: 'POST',
-        token: fastify.config.serviceAuthToken,
+        config: fastify.config,
         correlationId: request.correlationId,
         body: {
           organizationId: request.params.organizationId,
@@ -57,9 +57,9 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       }
       await fastify.organizationService.get(principal.userId, request.query.organizationId, 'VIEWER');
       const result = await callService<{ items: Repository[]; page: number; pageSize: number; total: number }>({
-        baseUrl: fastify.config.repositoryBaseUrl,
+        baseUrl: fastify.config.repositoryServiceUrl,
         path: `/api/v1/repositories?organizationId=${request.query.organizationId}&page=${request.query.page}&pageSize=${request.query.pageSize}`,
-        token: fastify.config.serviceAuthToken,
+        config: fastify.config,
         correlationId: request.correlationId,
       });
       return result.json;
@@ -80,9 +80,9 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       const principal = await fastify.authenticate(request);
       await fastify.organizationService.get(principal.userId, request.query.organizationId, 'VIEWER');
       const result = await callService<Repository>({
-        baseUrl: fastify.config.repositoryBaseUrl,
+        baseUrl: fastify.config.repositoryServiceUrl,
         path: `/api/v1/repositories/${request.params.repositoryId}?organizationId=${request.query.organizationId}`,
-        token: fastify.config.serviceAuthToken,
+        config: fastify.config,
         correlationId: request.correlationId,
       });
       return result.json;
@@ -102,10 +102,10 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       const principal = await fastify.authenticate(request);
       await fastify.organizationService.get(principal.userId, request.query.organizationId, 'MEMBER');
       const result = await callService({
-        baseUrl: fastify.config.repositoryBaseUrl,
+        baseUrl: fastify.config.repositoryServiceUrl,
         path: `/api/v1/repositories/${request.params.repositoryId}/analysis?organizationId=${request.query.organizationId}`,
         method: 'POST',
-        token: fastify.config.serviceAuthToken,
+        config: fastify.config,
         correlationId: request.correlationId,
         body: request.body,
       });
@@ -133,9 +133,9 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       }
       await fastify.organizationService.get(principal.userId, request.query.organizationId, 'VIEWER');
       const result = await callService<{ items: AnalysisRun[] }>({
-        baseUrl: fastify.config.repositoryBaseUrl,
+        baseUrl: fastify.config.repositoryServiceUrl,
         path: `/api/v1/analysis?organizationId=${request.query.organizationId}&repositoryId=${request.query.repositoryId}`,
-        token: fastify.config.serviceAuthToken,
+        config: fastify.config,
         correlationId: request.correlationId,
       });
       return result.json;

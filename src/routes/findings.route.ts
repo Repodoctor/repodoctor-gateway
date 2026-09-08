@@ -30,9 +30,9 @@ const findingsGatewayRoute: FastifyPluginAsyncZod = async (fastify) => {
       });
       if (request.query.repositoryId) params.set('repositoryId', request.query.repositoryId);
       const result = await callService<{ items: Finding[]; page: number; pageSize: number; total: number }>({
-        baseUrl: fastify.config.findingsBaseUrl,
+        baseUrl: fastify.config.findingsServiceUrl,
         path: `/api/v1/findings?${params.toString()}`,
-        token: fastify.config.serviceAuthToken,
+        config: fastify.config,
         correlationId: request.correlationId,
       });
       return result.json;

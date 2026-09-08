@@ -29,4 +29,5 @@ __exportStar(require("./scm"), exports);
 __exportStar(require("./pagination"), exports);
 __exportStar(require("./health-score"), exports);
 __exportStar(require("./api"), exports);
+__exportStar(require("./service-jwt"), exports);
 //# sourceMappingURL=index.js.map

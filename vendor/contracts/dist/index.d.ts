@@ -13,3 +13,4 @@ export * from './scm';
 export * from './pagination';
 export * from './health-score';
 export * from './api';
+export * from './service-jwt';

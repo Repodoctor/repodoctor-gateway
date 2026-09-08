@@ -58,9 +58,12 @@ class CloudflareQueuesMessageBus {
     }
 }
 exports.CloudflareQueuesMessageBus = CloudflareQueuesMessageBus;
+async function resolveServiceToken(source) {
+    return typeof source === 'function' ? source() : source;
+}
 /**
  * HTTP fan-out bus for independently deployed services.
- * Subscribers expose POST /internal/events and verify the service token.
+ * Subscribers expose POST /internal/events and verify a short-lived service JWT.
  */
 class HttpMessageBus {
     targets;
@@ -75,13 +78,15 @@ class HttpMessageBus {
         if (this.targets.length === 0) {
             return;
         }
+        const token = await resolveServiceToken(this.serviceToken);
         const body = JSON.stringify({ topic, message });
         const results = await Promise.allSettled(this.targets.map(async (url) => {
             const response = await this.fetchImpl(url, {
                 method: 'POST',
                 headers: {
                     'content-type': 'application/json',
-                    'x-service-token': this.serviceToken,
+                    authorization: `Bearer ${token}`,
+                    'x-service-token': token,
                 },
                 body,
             });

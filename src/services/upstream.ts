@@ -1,10 +1,11 @@
-import { AppError } from '@repodoctor/contracts';
+import { AppError, INTERNAL_SERVICE_AUDIENCE, mintServiceJwt } from '@repodoctor/contracts';
+import type { AppConfig } from '../config/env';
 
 export async function callService<T>(input: {
   baseUrl: string;
   path: string;
   method?: string;
-  token: string;
+  config: AppConfig;
   correlationId?: string;
   body?: unknown;
   rawBody?: Buffer;
@@ -18,8 +19,15 @@ export async function callService<T>(input: {
       message: 'Upstream service is not configured',
     });
   }
+  const token = await mintServiceJwt({
+    secret: input.config.internalServiceToken,
+    issuer: input.config.serviceName,
+    audience: INTERNAL_SERVICE_AUDIENCE,
+    ttlSeconds: input.config.serviceJwtTtlSeconds,
+  });
   const headers: Record<string, string> = {
-    'x-service-token': input.token,
+    authorization: `Bearer ${token}`,
+    'x-service-token': token,
     ...(input.headers ?? {}),
   };
   if (input.correlationId) {

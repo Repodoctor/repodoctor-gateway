@@ -27,15 +27,16 @@ export declare class CloudflareQueuesMessageBus implements MessageBus {
     publish<T>(topic: string, message: T): Promise<void>;
     subscribe<T>(_topic: string, _handler: (message: T) => Promise<void>): Promise<void>;
 }
+export type ServiceTokenSource = string | (() => string | Promise<string>);
 /**
  * HTTP fan-out bus for independently deployed services.
- * Subscribers expose POST /internal/events and verify the service token.
+ * Subscribers expose POST /internal/events and verify a short-lived service JWT.
  */
 export declare class HttpMessageBus implements MessageBus {
     private readonly targets;
     private readonly serviceToken;
     private readonly fetchImpl;
-    constructor(targets: string[], serviceToken: string, fetchImpl?: typeof fetch);
+    constructor(targets: string[], serviceToken: ServiceTokenSource, fetchImpl?: typeof fetch);
     publish<T>(topic: string, message: T): Promise<void>;
     subscribe<T>(_topic: string, _handler: (message: T) => Promise<void>): Promise<void>;
 }

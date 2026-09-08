@@ -20,10 +20,10 @@ const webhookRoute: FastifyPluginAsyncZod = async (fastify) => {
       const eventName = request.headers['x-github-event'];
       const deliveryId = request.headers['x-github-delivery'];
       const forwarded = await callService<{ duplicate: boolean; processed: boolean }>({
-        baseUrl: fastify.config.scmBaseUrl,
+        baseUrl: fastify.config.scmServiceUrl,
         path: '/internal/webhooks/github',
         method: 'POST',
-        token: fastify.config.serviceAuthToken,
+        config: fastify.config,
         correlationId: request.correlationId,
         rawBody: request.rawBody,
         headers: {

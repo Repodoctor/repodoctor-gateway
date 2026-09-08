@@ -47,14 +47,14 @@ describe.skipIf(!scmAvailable || !repositoryAvailable)('github webhook to analys
       pathToFileURL(path.join(workspaceRoot, 'repodoctor-scm/src/services/fake-provider.ts')).href
     );
 
-    repository = buildRepository(loadRepositoryConfig({ nodeEnv: 'test', serviceAuthToken: serviceToken }));
+    repository = buildRepository(loadRepositoryConfig({ nodeEnv: 'test', internalServiceToken: serviceToken }));
     await repository.listen({ host: '127.0.0.1', port: 0 });
     const repositoryUrl = listenUrl(repository);
 
     scm = buildScm(
       loadScmConfig({
         nodeEnv: 'test',
-        serviceAuthToken: serviceToken,
+        internalServiceToken: serviceToken,
         githubWebhookSecret: webhookSecret,
         eventHttpTargets: [`${repositoryUrl}/internal/events`],
       }),
@@ -67,10 +67,10 @@ describe.skipIf(!scmAvailable || !repositoryAvailable)('github webhook to analys
       loadGatewayConfig({
         nodeEnv: 'test',
         authProvider: 'local',
-        serviceAuthToken: serviceToken,
-        scmBaseUrl: scmUrl,
-        repositoryBaseUrl: repositoryUrl,
-        findingsBaseUrl: '',
+        internalServiceToken: serviceToken,
+        scmServiceUrl: scmUrl,
+        repositoryServiceUrl: repositoryUrl,
+        findingsServiceUrl: '',
       }),
     );
     await gateway.ready();

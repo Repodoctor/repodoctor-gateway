@@ -37,9 +37,9 @@ describe('gateway github webhook proxy', () => {
       loadConfig({
         nodeEnv: 'test',
         authProvider: 'local',
-        scmBaseUrl: `http://127.0.0.1:${address.port}`,
-        repositoryBaseUrl: 'http://127.0.0.1:9',
-        findingsBaseUrl: 'http://127.0.0.1:9',
+        scmServiceUrl: `http://127.0.0.1:${address.port}`,
+        repositoryServiceUrl: 'http://127.0.0.1:9',
+        findingsServiceUrl: 'http://127.0.0.1:9',
       }),
     );
     await app.ready();
@@ -56,7 +56,8 @@ describe('gateway github webhook proxy', () => {
       payload,
     });
     expect(response.statusCode).toBe(202);
-    expect(received?.headers['x-service-token']).toBe('local-service-token');
+    expect(received?.headers['x-service-token']?.split('.')).toHaveLength(3);
+    expect(String(received?.headers.authorization ?? '')).toMatch(/^Bearer /);
     expect(received?.headers['x-github-event']).toBe('ping');
     expect(received?.body).toBe(payload.toString('utf8'));
     await app.close();
