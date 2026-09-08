@@ -1,6 +1,7 @@
 export * from './auth';
 export * from './errors';
 export * from './events';
+export * from './event-payloads';
 export * from './bus';
 export * from './analysis';
 export * from './findings';

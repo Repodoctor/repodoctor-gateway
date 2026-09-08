@@ -24,7 +24,9 @@ export interface AppConfig {
   supabaseUrl: string;
   supabaseAnonKey: string;
   supabaseServiceRoleKey: string;
-
+  scmBaseUrl: string;
+  repositoryBaseUrl: string;
+  findingsBaseUrl: string;
 }
 
 function optionalEnv(name: string, fallback: string): string {
@@ -51,6 +53,9 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     supabaseUrl: optionalEnv('SUPABASE_URL', ''),
     supabaseAnonKey: optionalEnv('SUPABASE_ANON_KEY', ''),
     supabaseServiceRoleKey: optionalEnv('SUPABASE_SERVICE_ROLE_KEY', ''),
+    scmBaseUrl: optionalEnv('SCM_BASE_URL', 'http://127.0.0.1:43122'),
+    repositoryBaseUrl: optionalEnv('REPOSITORY_BASE_URL', 'http://127.0.0.1:43123'),
+    findingsBaseUrl: optionalEnv('FINDINGS_BASE_URL', 'http://127.0.0.1:43124'),
 
     ...overrides,
   };

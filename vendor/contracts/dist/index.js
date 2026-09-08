@@ -17,6 +17,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./auth"), exports);
 __exportStar(require("./errors"), exports);
 __exportStar(require("./events"), exports);
+__exportStar(require("./event-payloads"), exports);
 __exportStar(require("./bus"), exports);
 __exportStar(require("./analysis"), exports);
 __exportStar(require("./findings"), exports);

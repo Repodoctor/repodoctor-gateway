@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.domainEventSchema = exports.Topics = exports.eventTopicSchema = void 0;
+exports.inboundEventSchema = exports.domainEventSchema = exports.Topics = exports.eventTopicSchema = void 0;
 exports.createDomainEvent = createDomainEvent;
 const zod_1 = require("zod");
 exports.eventTopicSchema = zod_1.z.enum([
@@ -60,6 +60,10 @@ exports.domainEventSchema = zod_1.z.object({
     repositoryId: zod_1.z.string().uuid().optional(),
     actorUserId: zod_1.z.string().uuid().optional(),
     payload: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()),
+});
+exports.inboundEventSchema = zod_1.z.object({
+    topic: exports.eventTopicSchema,
+    message: exports.domainEventSchema,
 });
 function createDomainEvent(input) {
     return {

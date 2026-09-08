@@ -11,9 +11,6 @@ const catalogRoute: FastifyPluginAsyncZod = async (fastify) => {
   };
 
   const paths = [
-    '/api/v1/repositories',
-    '/api/v1/analysis',
-    '/api/v1/findings',
     '/api/v1/reviews',
     '/api/v1/security',
     '/api/v1/dependencies',

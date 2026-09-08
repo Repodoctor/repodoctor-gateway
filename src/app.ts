@@ -16,6 +16,7 @@ import tracingPlugin from './plugins/tracing.plugin';
 import errorHandlerPlugin from './plugins/error-handler.plugin';
 import serviceAuthPlugin from './plugins/service-auth.plugin';
 import userAuthPlugin from './plugins/user-auth.plugin';
+import rawBodyPlugin from './plugins/raw-body.plugin';
 import v1Routes from './routes';
 
 /** Builds (but does not start) a fully configured Fastify instance. */
@@ -35,6 +36,7 @@ export function buildApp(config: AppConfig): FastifyInstance {
   const typed = fastify.withTypeProvider<ZodTypeProvider>();
 
   typed.register(configPlugin(config));
+  typed.register(rawBodyPlugin);
   typed.register(requestIdPlugin);
   typed.register(tracingPlugin);
   typed.register(helmetPlugin);

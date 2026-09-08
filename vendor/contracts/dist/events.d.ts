@@ -84,6 +84,66 @@ export declare const domainEventSchema: z.ZodObject<{
 export type DomainEvent<T extends Record<string, unknown> = Record<string, unknown>> = Omit<z.infer<typeof domainEventSchema>, 'payload'> & {
     payload: T;
 };
+export declare const inboundEventSchema: z.ZodObject<{
+    topic: z.ZodEnum<{
+        "repository.connected": "repository.connected";
+        "repository.created": "repository.created";
+        "repository.updated": "repository.updated";
+        "pull_request.opened": "pull_request.opened";
+        "pull_request.updated": "pull_request.updated";
+        "analysis.requested": "analysis.requested";
+        "analysis.started": "analysis.started";
+        "analysis.completed": "analysis.completed";
+        "analysis.failed": "analysis.failed";
+        "repograph.analysis.completed": "repograph.analysis.completed";
+        "security.scan.completed": "security.scan.completed";
+        "dependency.scan.completed": "dependency.scan.completed";
+        "documentation.generated": "documentation.generated";
+        "ci.run.failed": "ci.run.failed";
+        "ci.failure.analyzed": "ci.failure.analyzed";
+        "code-review.requested": "code-review.requested";
+        "code-review.completed": "code-review.completed";
+        "finding.created": "finding.created";
+        "finding.resolved": "finding.resolved";
+        "finding.ignored": "finding.ignored";
+        "remediation.requested": "remediation.requested";
+        "remediation.completed": "remediation.completed";
+    }>;
+    message: z.ZodObject<{
+        eventId: z.ZodString;
+        topic: z.ZodEnum<{
+            "repository.connected": "repository.connected";
+            "repository.created": "repository.created";
+            "repository.updated": "repository.updated";
+            "pull_request.opened": "pull_request.opened";
+            "pull_request.updated": "pull_request.updated";
+            "analysis.requested": "analysis.requested";
+            "analysis.started": "analysis.started";
+            "analysis.completed": "analysis.completed";
+            "analysis.failed": "analysis.failed";
+            "repograph.analysis.completed": "repograph.analysis.completed";
+            "security.scan.completed": "security.scan.completed";
+            "dependency.scan.completed": "dependency.scan.completed";
+            "documentation.generated": "documentation.generated";
+            "ci.run.failed": "ci.run.failed";
+            "ci.failure.analyzed": "ci.failure.analyzed";
+            "code-review.requested": "code-review.requested";
+            "code-review.completed": "code-review.completed";
+            "finding.created": "finding.created";
+            "finding.resolved": "finding.resolved";
+            "finding.ignored": "finding.ignored";
+            "remediation.requested": "remediation.requested";
+            "remediation.completed": "remediation.completed";
+        }>;
+        occurredAt: z.ZodString;
+        correlationId: z.ZodString;
+        organizationId: z.ZodString;
+        repositoryId: z.ZodOptional<z.ZodString>;
+        actorUserId: z.ZodOptional<z.ZodString>;
+        payload: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+    }, z.core.$strip>;
+}, z.core.$strip>;
+export type InboundEvent = z.infer<typeof inboundEventSchema>;
 export declare function createDomainEvent<T extends Record<string, unknown>>(input: {
     eventId: string;
     topic: EventTopic;

@@ -10,6 +10,7 @@ declare module 'fastify' {
     requestId: string;
     correlationId: string;
     auth?: AuthPrincipal;
+    rawBody?: Buffer;
   }
 }
 
