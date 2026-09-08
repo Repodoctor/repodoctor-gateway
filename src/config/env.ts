@@ -108,8 +108,8 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   if (config.nodeEnv === 'production' && !config.internalServiceToken) {
     throw new Error('INTERNAL_SERVICE_TOKEN is required in production');
   }
-  if (config.authProvider === 'supabase' && (!config.supabaseUrl || !config.supabaseAnonKey)) {
-    throw new Error('Supabase auth requires SUPABASE_URL and SUPABASE_ANON_KEY');
+  if (config.authProvider === 'supabase' && (!config.supabaseUrl || !config.supabaseJwksUrl)) {
+    throw new Error('Supabase auth requires SUPABASE_URL and SUPABASE_JWKS_URL');
   }
   return config;
 }

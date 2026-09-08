@@ -1,5 +1,4 @@
-import { SignJWT, createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { SignJWT, createRemoteJWKSet, jwtVerify, type JWTPayload, type JWTVerifyGetKey } from 'jose';
 import {
   UnauthenticatedError,
   badRequest,
@@ -145,29 +144,31 @@ export class LocalAuthService implements AuthService {
   }
 }
 
+function metadataString(payload: JWTPayload, key: string): string | undefined {
+  const metadata = payload.user_metadata;
+  if (typeof metadata !== 'object' || metadata === null || !(key in metadata)) {
+    return undefined;
+  }
+  const value = (metadata as Record<string, unknown>)[key];
+  return typeof value === 'string' ? value : undefined;
+}
+
+/** Production path: verify Supabase user JWTs with JWKS. Sign-in lives on the dashboard. */
 export class SupabaseAuthService implements AuthService {
-  private readonly client: SupabaseClient;
-  private readonly supabaseUrl: string;
-  private readonly supabaseAnonKey: string;
-  private readonly jwks?: JWTVerifyGetKey;
-  private readonly issuer?: string;
+  private readonly jwks: JWTVerifyGetKey;
 
   constructor(
     private readonly directory: MemoryDirectory,
     config: AppConfig,
   ) {
-    if (!config.supabaseUrl || !config.supabaseAnonKey) {
-      throw new Error('Supabase auth requires SUPABASE_URL and SUPABASE_ANON_KEY');
+    if (!config.supabaseUrl || !config.supabaseJwksUrl) {
+      throw new Error('Supabase auth requires SUPABASE_URL and SUPABASE_JWKS_URL');
     }
-    this.supabaseUrl = config.supabaseUrl;
-    this.supabaseAnonKey = config.supabaseAnonKey;
-    this.client = createClient(config.supabaseUrl, config.supabaseAnonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    if (config.supabaseJwksUrl) {
-      this.jwks = createRemoteJWKSet(new URL(config.supabaseJwksUrl));
-      this.issuer = `${config.supabaseUrl.replace(/\/$/, '')}/auth/v1`;
-    }
+    this.jwks = createRemoteJWKSet(new URL(config.supabaseJwksUrl));
+  }
+
+  private clientAuthUnsupported(): never {
+    throw badRequest('Sign-in is performed by the dashboard with Supabase Auth');
   }
 
   private async upsertLocal(user: User): Promise<void> {
@@ -182,127 +183,50 @@ export class SupabaseAuthService implements AuthService {
     });
   }
 
-  private toSession(
-    user: User,
-    accessToken: string,
-    refreshToken: string,
-    expiresIn: number,
-  ): Session {
-    return {
-      accessToken,
-      refreshToken,
-      expiresAt: expiryIso(expiresIn * 1000),
-      user,
-    };
+  async signup(_input: { email: string; password: string; displayName: string }): Promise<Session> {
+    this.clientAuthUnsupported();
   }
 
-  private userFromSupabase(
-    id: string,
-    email: string,
-    displayName: string,
-    createdAt?: string,
-  ): User {
-    const now = new Date().toISOString();
-    return {
-      id,
-      email,
-      displayName,
-      createdAt: createdAt ?? now,
-      updatedAt: now,
-    };
+  async login(_input: { email: string; password: string }): Promise<Session> {
+    this.clientAuthUnsupported();
   }
 
-  async signup(input: { email: string; password: string; displayName: string }): Promise<Session> {
-    const { data, error } = await this.client.auth.signUp({
-      email: input.email,
-      password: input.password,
-      options: { data: { display_name: input.displayName } },
-    });
-    if (error) throw badRequest(error.message);
-    if (!data.user || !data.session) {
-      throw badRequest('Signup requires email confirmation in this Supabase project');
-    }
-    const user = this.userFromSupabase(
-      data.user.id,
-      input.email.toLowerCase(),
-      input.displayName,
-      data.user.created_at,
-    );
-    await this.upsertLocal(user);
-    return this.toSession(user, data.session.access_token, data.session.refresh_token, data.session.expires_in);
+  async refresh(_refreshToken: string): Promise<Session> {
+    this.clientAuthUnsupported();
   }
 
-  async login(input: { email: string; password: string }): Promise<Session> {
-    const { data, error } = await this.client.auth.signInWithPassword({
-      email: input.email,
-      password: input.password,
-    });
-    if (error || !data.user || !data.session) {
-      throw new UnauthenticatedError('Invalid email or password');
-    }
-    const user = this.userFromSupabase(
-      data.user.id,
-      data.user.email ?? input.email,
-      (data.user.user_metadata?.display_name as string | undefined) ?? input.email,
-      data.user.created_at,
-    );
-    await this.upsertLocal(user);
-    return this.toSession(user, data.session.access_token, data.session.refresh_token, data.session.expires_in);
+  async logout(_refreshToken?: string): Promise<void> {
+    return;
   }
 
-  async refresh(refreshToken: string): Promise<Session> {
-    const { data, error } = await this.client.auth.refreshSession({ refresh_token: refreshToken });
-    if (error || !data.user || !data.session) {
-      throw new UnauthenticatedError('Invalid refresh token');
-    }
-    const user = await this.userFromAccessToken(data.session.access_token);
-    return this.toSession(user, data.session.access_token, data.session.refresh_token, data.session.expires_in);
-  }
-
-  async logout(refreshToken?: string): Promise<void> {
-    if (refreshToken) {
-      await this.client.auth.signOut();
-    }
-  }
-
-  async forgotPassword(email: string): Promise<void> {
-    await this.client.auth.resetPasswordForEmail(email);
+  async forgotPassword(_email: string): Promise<void> {
+    this.clientAuthUnsupported();
   }
 
   async userFromAccessToken(token: string): Promise<User> {
-    if (this.jwks) {
-      try {
-        const { payload } = await jwtVerify(token, this.jwks, {
-          issuer: this.issuer,
-          audience: 'authenticated',
-        });
-        const userId = typeof payload.sub === 'string' ? payload.sub : undefined;
-        const email = typeof payload.email === 'string' ? payload.email : '';
-        if (!userId) throw new UnauthenticatedError('Invalid access token');
-        const metadata = payload.user_metadata as { display_name?: string } | undefined;
-        const user = this.userFromSupabase(
-          userId,
-          email,
-          metadata?.display_name ?? (email || 'user'),
-        );
-        await this.upsertLocal(user);
-        return user;
-      } catch (error) {
-        if (error instanceof UnauthenticatedError) throw error;
-        throw new UnauthenticatedError('Invalid access token');
+    try {
+      const { payload } = await jwtVerify(token, this.jwks);
+      const userId = typeof payload.sub === 'string' ? payload.sub : undefined;
+      const email = typeof payload.email === 'string' ? payload.email : metadataString(payload, 'email');
+      if (!userId || !email) {
+        throw new UnauthenticatedError('Access token is missing required claims');
       }
+      const displayName =
+        metadataString(payload, 'display_name') ?? metadataString(payload, 'full_name') ?? email;
+      const now = new Date().toISOString();
+      const user: User = {
+        id: userId,
+        email,
+        displayName,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await this.upsertLocal(user);
+      return user;
+    } catch (error) {
+      if (error instanceof UnauthenticatedError) throw error;
+      throw new UnauthenticatedError('Invalid access token');
     }
-
-    const { data, error } = await this.client.auth.getUser(token);
-    if (error || !data.user) throw new UnauthenticatedError('Invalid access token');
-    const user = this.userFromSupabase(
-      data.user.id,
-      data.user.email ?? '',
-      (data.user.user_metadata?.display_name as string | undefined) ?? data.user.email ?? 'user',
-      data.user.created_at,
-    );
-    await this.upsertLocal(user);
-    return user;
   }
 
   async getUser(userId: string): Promise<User | undefined> {
@@ -315,22 +239,12 @@ export class SupabaseAuthService implements AuthService {
     return user ? toUser(user) : undefined;
   }
 
-  async updateProfile(userId: string, displayName: string, accessToken?: string): Promise<User> {
-    if (!accessToken) throw new UnauthenticatedError('Missing bearer token');
-    const scoped = createClient(this.supabaseUrl, this.supabaseAnonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-      global: { headers: { Authorization: `Bearer ${accessToken}` } },
-    });
-    const { data, error } = await scoped.auth.updateUser({ data: { display_name: displayName } });
-    if (error || !data.user || data.user.id !== userId) throw notFound('User not found');
-    const user = this.userFromSupabase(
-      data.user.id,
-      data.user.email ?? '',
-      displayName,
-      data.user.created_at,
-    );
-    await this.upsertLocal(user);
-    return user;
+  async updateProfile(userId: string, displayName: string, _accessToken?: string): Promise<User> {
+    const existing = this.directory.users.get(userId);
+    if (!existing) throw notFound('User not found');
+    existing.displayName = displayName;
+    existing.updatedAt = new Date().toISOString();
+    return toUser(existing);
   }
 }
 

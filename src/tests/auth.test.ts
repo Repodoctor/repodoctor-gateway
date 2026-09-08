@@ -133,7 +133,7 @@ describe('authentication and authorization', () => {
 });
 
 describe('supabase auth configuration', () => {
-  it('constructs without a service-role key', async () => {
+  it('constructs with url and jwks and no anon key', async () => {
     const { MemoryDirectory } = await import('../services/memory-store');
     const { SupabaseAuthService } = await import('../services/auth.service');
     const service = new SupabaseAuthService(
@@ -142,21 +142,21 @@ describe('supabase auth configuration', () => {
         nodeEnv: 'test',
         authProvider: 'supabase',
         supabaseUrl: 'https://example.supabase.co',
-        supabaseAnonKey: 'anon-test-key',
-        supabaseJwksUrl: '',
+        supabaseJwksUrl: 'https://example.supabase.co/auth/v1/.well-known/jwks.json',
+        supabaseAnonKey: '',
       }),
     );
     expect(service).toBeTruthy();
   });
 
-  it('requires url and anon key for supabase', () => {
+  it('requires url and jwks for supabase', () => {
     expect(() =>
       loadConfig({
         nodeEnv: 'test',
         authProvider: 'supabase',
         supabaseUrl: '',
-        supabaseAnonKey: '',
+        supabaseJwksUrl: '',
       }),
-    ).toThrow(/SUPABASE_URL and SUPABASE_ANON_KEY/);
+    ).toThrow(/SUPABASE_URL and SUPABASE_JWKS_URL/);
   });
 });
