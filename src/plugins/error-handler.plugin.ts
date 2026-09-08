@@ -52,7 +52,10 @@ export default fp(async (fastify) => {
       return;
     }
 
-    const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
+    const rawCode = (error as { code?: string }).code;
+    const serialization = typeof rawCode === 'string' && rawCode.includes('SERIALIZATION');
+    const statusCode = serialization ? 502 : ((error as { statusCode?: number }).statusCode ?? 500);
+
     if (statusCode === 429) {
       reply.status(429).send(
         apiError({
@@ -72,9 +75,9 @@ export default fp(async (fastify) => {
       apiError({
         statusCode,
         error: statusCode >= 500 ? 'Internal Server Error' : 'Error',
-        code: statusCode >= 500 ? 'INTERNAL' : 'BAD_REQUEST',
+        code: serialization ? 'BAD_GATEWAY' : statusCode >= 500 ? 'INTERNAL' : 'BAD_REQUEST',
         message:
-          fastify.config.nodeEnv === 'production' && statusCode >= 500
+          fastify.config.nodeEnv === 'production' && statusCode >= 500 && !serialization
             ? 'Something went wrong'
             : message,
         requestId,

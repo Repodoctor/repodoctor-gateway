@@ -50,10 +50,10 @@ export class OrganizationService {
   }
 
   async listForUser(userId: string): Promise<Array<Organization & { role: OrgRole }>> {
-    const { json } = await this.repo<{ items: Array<Organization & { role: OrgRole }> }>(
+    const { json } = await this.repo<{ items?: Array<Organization & { role: OrgRole }> }>(
       `/internal/v1/organizations?userId=${encodeURIComponent(userId)}`,
     );
-    return json.items;
+    return json.items ?? [];
   }
 
   async get(userId: string, organizationId: string, required: OrgRole = 'VIEWER'): Promise<Organization> {
@@ -83,7 +83,7 @@ export class OrganizationService {
     const { json } = await this.repo<{ items: OrganizationMember[] }>(
       `/internal/v1/organizations/${organizationId}/members?userId=${encodeURIComponent(userId)}`,
     );
-    return json.items;
+    return json.items ?? [];
   }
 
   async addMember(

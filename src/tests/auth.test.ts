@@ -171,6 +171,28 @@ describe('authentication and authorization', () => {
   });
 });
 
+describe('repository upstream failures', () => {
+  it('returns 502 instead of 500 when the repository is unreachable', async () => {
+    const app = buildApp(
+      loadConfig({
+        nodeEnv: 'test',
+        authProvider: 'local',
+        internalServiceToken: 'auth-test-service-token',
+        repositoryServiceUrl: 'http://127.0.0.1:9',
+      }),
+    );
+    await app.ready();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/signup',
+      payload: { email: 'ada@example.com', password: 'correct-horse', displayName: 'Ada' },
+    });
+    expect(response.statusCode).toBe(502);
+    expect(response.json().code).toBe('BAD_GATEWAY');
+    await app.close();
+  });
+});
+
 describe('supabase auth configuration', () => {
   it('constructs with url and jwks and no anon key', async () => {
     const { OrganizationService } = await import('../services/organization.service');

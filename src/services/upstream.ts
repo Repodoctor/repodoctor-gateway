@@ -1,6 +1,27 @@
 import { AppError, INTERNAL_SERVICE_AUDIENCE, mintServiceJwt } from '@repodoctor/contracts';
 import type { AppConfig } from '../config/env';
 
+function normalizeBaseUrl(url: string): string {
+  const trimmed = url.trim().replace(/\/+$/, '');
+  if (!trimmed) return trimmed;
+  if (!/^https?:\/\//i.test(trimmed)) return `http://${trimmed}`;
+  return trimmed;
+}
+
+function parseUpstreamJson(text: string, path: string): unknown {
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new AppError({
+      statusCode: 502,
+      error: 'Bad Gateway',
+      code: 'BAD_GATEWAY',
+      message: `Upstream ${path} returned a non-JSON response`,
+    });
+  }
+}
+
 export async function callService<T>(input: {
   baseUrl: string;
   path: string;
@@ -11,7 +32,8 @@ export async function callService<T>(input: {
   rawBody?: Buffer;
   headers?: Record<string, string>;
 }): Promise<{ status: number; json: T }> {
-  if (!input.baseUrl) {
+  const baseUrl = normalizeBaseUrl(input.baseUrl);
+  if (!baseUrl) {
     throw new AppError({
       statusCode: 502,
       error: 'Bad Gateway',
@@ -41,13 +63,25 @@ export async function callService<T>(input: {
     headers['content-type'] = 'application/json';
     body = JSON.stringify(input.body);
   }
-  const response = await fetch(`${input.baseUrl}${input.path}`, {
-    method: input.method ?? 'GET',
-    headers,
-    body,
-  });
+
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}${input.path}`, {
+      method: input.method ?? 'GET',
+      headers,
+      body,
+    });
+  } catch {
+    throw new AppError({
+      statusCode: 502,
+      error: 'Bad Gateway',
+      code: 'BAD_GATEWAY',
+      message: `Upstream ${input.path} is unreachable`,
+    });
+  }
+
   const text = await response.text();
-  const json = (text ? JSON.parse(text) : {}) as T;
+  const json = parseUpstreamJson(text, input.path) as T;
   if (response.status >= 400) {
     throw new AppError({
       statusCode: response.status >= 500 ? 502 : response.status,
@@ -62,7 +96,10 @@ export async function callService<T>(input: {
               : response.status === 409
                 ? 'CONFLICT'
                 : 'BAD_GATEWAY',
-      message: typeof (json as { message?: string }).message === 'string' ? (json as { message: string }).message : `Upstream ${input.path} failed`,
+      message:
+        typeof (json as { message?: string }).message === 'string'
+          ? (json as { message: string }).message
+          : `Upstream ${input.path} failed`,
     });
   }
   return { status: response.status, json };

@@ -25,15 +25,16 @@ const userAuthPlugin: FastifyPluginAsync = async (fastify) => {
     }
     const token = header.slice('Bearer '.length);
     const user = await authService.userFromAccessToken(token);
+    const displayName = (user.displayName || user.email).slice(0, 80);
     await organizationService.ensureUser({
       id: user.id,
       email: user.email,
-      displayName: user.displayName,
+      displayName,
     });
     const principal: AuthPrincipal = {
       userId: user.id,
       email: user.email,
-      displayName: user.displayName,
+      displayName,
     };
     request.auth = principal;
     request.log = request.log.child({ userId: principal.userId });
