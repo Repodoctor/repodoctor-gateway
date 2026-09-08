@@ -1,0 +1,84 @@
+import fp from 'fastify-plugin';
+import { ZodError } from 'zod';
+import { AppError, apiError } from '@repodoctor/contracts';
+import { AuthorizationError, UnauthenticatedError } from '@repodoctor/contracts';
+
+export default fp(async (fastify) => {
+  fastify.setErrorHandler((error, request, reply) => {
+    const requestId = request.requestId;
+
+    if (error instanceof UnauthenticatedError) {
+      reply.status(401).send(
+        apiError({
+          statusCode: 401,
+          error: 'Unauthorized',
+          code: 'UNAUTHENTICATED',
+          message: error.message,
+          requestId,
+        }),
+      );
+      return;
+    }
+
+    if (error instanceof AuthorizationError) {
+      reply.status(403).send(
+        apiError({
+          statusCode: 403,
+          error: 'Forbidden',
+          code: 'FORBIDDEN',
+          message: error.message,
+          requestId,
+        }),
+      );
+      return;
+    }
+
+    if (error instanceof AppError) {
+      reply.status(error.statusCode).send(error.toEnvelope(requestId));
+      return;
+    }
+
+    if (error instanceof ZodError) {
+      reply.status(400).send(
+        apiError({
+          statusCode: 400,
+          error: 'Bad Request',
+          code: 'VALIDATION_ERROR',
+          message: 'Request validation failed',
+          requestId,
+          details: error.issues,
+        }),
+      );
+      return;
+    }
+
+    const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
+    if (statusCode === 429) {
+      reply.status(429).send(
+        apiError({
+          statusCode: 429,
+          error: 'Too Many Requests',
+          code: 'RATE_LIMITED',
+          message: 'Rate limit exceeded',
+          requestId,
+        }),
+      );
+      return;
+    }
+
+    request.log.error({ err: error }, 'unhandled error');
+    const message = error instanceof Error ? error.message : 'Something went wrong';
+    reply.status(statusCode).send(
+      apiError({
+        statusCode,
+        error: statusCode >= 500 ? 'Internal Server Error' : 'Error',
+        code: statusCode >= 500 ? 'INTERNAL' : 'BAD_REQUEST',
+        message:
+          fastify.config.nodeEnv === 'production' && statusCode >= 500
+            ? 'Something went wrong'
+            : message,
+        requestId,
+      }),
+    );
+  });
+});
