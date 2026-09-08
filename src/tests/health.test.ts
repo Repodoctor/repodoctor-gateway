@@ -3,7 +3,7 @@ import { loadConfig } from '../config/env';
 import { buildApp } from '../app';
 
 describe('health', () => {
-  const app = buildApp(loadConfig({ nodeEnv: 'test' }));
+  const app = buildApp(loadConfig({ nodeEnv: 'test', authProvider: 'local' }));
 
   afterAll(async () => {
     await app.close();

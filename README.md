@@ -31,7 +31,7 @@ The gateway does not publish domain events. It proxies HTTP to SCM, repository, 
 
 ## Environment variables
 
-See `.env.example`. Never commit real secrets. Production uses `SUPABASE_URL` + `SUPABASE_JWKS_URL` (never a service-role key on this service). Internal calls mint a 60s HS256 JWT from `INTERNAL_SERVICE_TOKEN`.
+See `.env.example`. Never commit real secrets. Production uses `AUTH_PROVIDER=supabase` with `SUPABASE_URL`, `SUPABASE_ANON_KEY` (or `SUPABASE_PUBLISHABLE_KEY`), and `SUPABASE_JWKS_URL`. Do not put a service-role key on this service. Internal calls mint a 60s HS256 JWT from `INTERNAL_SERVICE_TOKEN`.
 
 ## Local development
 

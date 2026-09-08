@@ -131,3 +131,32 @@ describe('authentication and authorization', () => {
     expect(catalog.json().items).toEqual([]);
   });
 });
+
+describe('supabase auth configuration', () => {
+  it('constructs without a service-role key', async () => {
+    const { MemoryDirectory } = await import('../services/memory-store');
+    const { SupabaseAuthService } = await import('../services/auth.service');
+    const service = new SupabaseAuthService(
+      new MemoryDirectory(),
+      loadConfig({
+        nodeEnv: 'test',
+        authProvider: 'supabase',
+        supabaseUrl: 'https://example.supabase.co',
+        supabaseAnonKey: 'anon-test-key',
+        supabaseJwksUrl: '',
+      }),
+    );
+    expect(service).toBeTruthy();
+  });
+
+  it('requires url and anon key for supabase', () => {
+    expect(() =>
+      loadConfig({
+        nodeEnv: 'test',
+        authProvider: 'supabase',
+        supabaseUrl: '',
+        supabaseAnonKey: '',
+      }),
+    ).toThrow(/SUPABASE_URL and SUPABASE_ANON_KEY/);
+  });
+});

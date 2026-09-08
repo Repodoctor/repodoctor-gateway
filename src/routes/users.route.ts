@@ -30,7 +30,8 @@ const usersRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (request) => {
       const principal = await fastify.authenticate(request);
-      return fastify.authService.updateProfile(principal.userId, request.body.displayName);
+      const accessToken = request.headers.authorization?.slice('Bearer '.length);
+      return fastify.authService.updateProfile(principal.userId, request.body.displayName, accessToken);
     },
   );
 };

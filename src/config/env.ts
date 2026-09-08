@@ -7,7 +7,8 @@ import { config as loadDotenv } from 'dotenv';
 
 loadDotenv();
 
-const DEFAULT_CORS = 'http://127.0.0.1:43120,http://localhost:43120,https://repodoctor.dev';
+const DEFAULT_CORS =
+  'http://127.0.0.1:43120,http://localhost:43120,https://repodoctor.dev,https://repo.slurrpsservers.com';
 const LOCAL_INTERNAL_TOKEN = 'local-dev-internal-service-token';
 
 export interface AppConfig {
@@ -28,9 +29,7 @@ export interface AppConfig {
   jwtSecret: string;
   supabaseUrl: string;
   supabaseJwksUrl: string;
-  supabaseJwtSecret: string;
   supabaseAnonKey: string;
-  supabaseServiceRoleKey: string;
   scmServiceUrl: string;
   repositoryServiceUrl: string;
   findingsServiceUrl: string;
@@ -90,9 +89,7 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     jwtSecret: optionalEnv('AUTH_JWT_SECRET', 'local-dev-only-change-me'),
     supabaseUrl: optionalEnv('SUPABASE_URL', ''),
     supabaseJwksUrl: optionalEnv('SUPABASE_JWKS_URL', ''),
-    supabaseJwtSecret: optionalEnv('SUPABASE_JWT_SECRET', ''),
-    supabaseAnonKey: optionalEnv('SUPABASE_ANON_KEY', ''),
-    supabaseServiceRoleKey: optionalEnv('SUPABASE_SERVICE_ROLE_KEY', ''),
+    supabaseAnonKey: firstEnv(['SUPABASE_ANON_KEY', 'SUPABASE_PUBLISHABLE_KEY'], ''),
     scmServiceUrl: firstEnv(['SCM_SERVICE_URL', 'SCM_BASE_URL'], 'http://127.0.0.1:43112'),
     repositoryServiceUrl: firstEnv(['REPOSITORY_SERVICE_URL', 'REPOSITORY_BASE_URL'], 'http://127.0.0.1:43113'),
     findingsServiceUrl: firstEnv(['FINDINGS_SERVICE_URL', 'FINDINGS_BASE_URL'], 'http://127.0.0.1:43114'),
@@ -110,6 +107,9 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   };
   if (config.nodeEnv === 'production' && !config.internalServiceToken) {
     throw new Error('INTERNAL_SERVICE_TOKEN is required in production');
+  }
+  if (config.authProvider === 'supabase' && (!config.supabaseUrl || !config.supabaseAnonKey)) {
+    throw new Error('Supabase auth requires SUPABASE_URL and SUPABASE_ANON_KEY');
   }
   return config;
 }

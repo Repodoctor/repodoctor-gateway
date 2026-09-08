@@ -1,4 +1,4 @@
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT, createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
   UnauthenticatedError,
@@ -21,7 +21,7 @@ export interface AuthService {
   userFromAccessToken(token: string): Promise<User>;
   getUser(userId: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  updateProfile(userId: string, displayName: string): Promise<User>;
+  updateProfile(userId: string, displayName: string, accessToken?: string): Promise<User>;
 }
 
 function toUser(row: StoredUser): User {
@@ -136,7 +136,7 @@ export class LocalAuthService implements AuthService {
     return user ? toUser(user) : undefined;
   }
 
-  async updateProfile(userId: string, displayName: string): Promise<User> {
+  async updateProfile(userId: string, displayName: string, _accessToken?: string): Promise<User> {
     const user = this.directory.users.get(userId);
     if (!user) throw notFound('User not found');
     user.displayName = displayName;
@@ -147,21 +147,27 @@ export class LocalAuthService implements AuthService {
 
 export class SupabaseAuthService implements AuthService {
   private readonly client: SupabaseClient;
-  private readonly admin: SupabaseClient;
+  private readonly supabaseUrl: string;
+  private readonly supabaseAnonKey: string;
+  private readonly jwks?: JWTVerifyGetKey;
+  private readonly issuer?: string;
 
   constructor(
     private readonly directory: MemoryDirectory,
     config: AppConfig,
   ) {
-    if (!config.supabaseUrl || !config.supabaseAnonKey || !config.supabaseServiceRoleKey) {
-      throw new Error('Supabase auth requires SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY');
+    if (!config.supabaseUrl || !config.supabaseAnonKey) {
+      throw new Error('Supabase auth requires SUPABASE_URL and SUPABASE_ANON_KEY');
     }
+    this.supabaseUrl = config.supabaseUrl;
+    this.supabaseAnonKey = config.supabaseAnonKey;
     this.client = createClient(config.supabaseUrl, config.supabaseAnonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    this.admin = createClient(config.supabaseUrl, config.supabaseServiceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    if (config.supabaseJwksUrl) {
+      this.jwks = createRemoteJWKSet(new URL(config.supabaseJwksUrl));
+      this.issuer = `${config.supabaseUrl.replace(/\/$/, '')}/auth/v1`;
+    }
   }
 
   private async upsertLocal(user: User): Promise<void> {
@@ -190,6 +196,22 @@ export class SupabaseAuthService implements AuthService {
     };
   }
 
+  private userFromSupabase(
+    id: string,
+    email: string,
+    displayName: string,
+    createdAt?: string,
+  ): User {
+    const now = new Date().toISOString();
+    return {
+      id,
+      email,
+      displayName,
+      createdAt: createdAt ?? now,
+      updatedAt: now,
+    };
+  }
+
   async signup(input: { email: string; password: string; displayName: string }): Promise<Session> {
     const { data, error } = await this.client.auth.signUp({
       email: input.email,
@@ -200,14 +222,12 @@ export class SupabaseAuthService implements AuthService {
     if (!data.user || !data.session) {
       throw badRequest('Signup requires email confirmation in this Supabase project');
     }
-    const now = new Date().toISOString();
-    const user: User = {
-      id: data.user.id,
-      email: input.email.toLowerCase(),
-      displayName: input.displayName,
-      createdAt: data.user.created_at ?? now,
-      updatedAt: now,
-    };
+    const user = this.userFromSupabase(
+      data.user.id,
+      input.email.toLowerCase(),
+      input.displayName,
+      data.user.created_at,
+    );
     await this.upsertLocal(user);
     return this.toSession(user, data.session.access_token, data.session.refresh_token, data.session.expires_in);
   }
@@ -220,14 +240,12 @@ export class SupabaseAuthService implements AuthService {
     if (error || !data.user || !data.session) {
       throw new UnauthenticatedError('Invalid email or password');
     }
-    const now = new Date().toISOString();
-    const user: User = {
-      id: data.user.id,
-      email: data.user.email ?? input.email,
-      displayName: (data.user.user_metadata?.display_name as string | undefined) ?? input.email,
-      createdAt: data.user.created_at ?? now,
-      updatedAt: now,
-    };
+    const user = this.userFromSupabase(
+      data.user.id,
+      data.user.email ?? input.email,
+      (data.user.user_metadata?.display_name as string | undefined) ?? input.email,
+      data.user.created_at,
+    );
     await this.upsertLocal(user);
     return this.toSession(user, data.session.access_token, data.session.refresh_token, data.session.expires_in);
   }
@@ -252,58 +270,65 @@ export class SupabaseAuthService implements AuthService {
   }
 
   async userFromAccessToken(token: string): Promise<User> {
-    const { data, error } = await this.admin.auth.getUser(token);
+    if (this.jwks) {
+      try {
+        const { payload } = await jwtVerify(token, this.jwks, {
+          issuer: this.issuer,
+          audience: 'authenticated',
+        });
+        const userId = typeof payload.sub === 'string' ? payload.sub : undefined;
+        const email = typeof payload.email === 'string' ? payload.email : '';
+        if (!userId) throw new UnauthenticatedError('Invalid access token');
+        const metadata = payload.user_metadata as { display_name?: string } | undefined;
+        const user = this.userFromSupabase(
+          userId,
+          email,
+          metadata?.display_name ?? (email || 'user'),
+        );
+        await this.upsertLocal(user);
+        return user;
+      } catch (error) {
+        if (error instanceof UnauthenticatedError) throw error;
+        throw new UnauthenticatedError('Invalid access token');
+      }
+    }
+
+    const { data, error } = await this.client.auth.getUser(token);
     if (error || !data.user) throw new UnauthenticatedError('Invalid access token');
-    const now = new Date().toISOString();
-    const user: User = {
-      id: data.user.id,
-      email: data.user.email ?? '',
-      displayName: (data.user.user_metadata?.display_name as string | undefined) ?? data.user.email ?? 'user',
-      createdAt: data.user.created_at ?? now,
-      updatedAt: now,
-    };
+    const user = this.userFromSupabase(
+      data.user.id,
+      data.user.email ?? '',
+      (data.user.user_metadata?.display_name as string | undefined) ?? data.user.email ?? 'user',
+      data.user.created_at,
+    );
     await this.upsertLocal(user);
     return user;
   }
 
   async getUser(userId: string): Promise<User | undefined> {
-    return this.directory.users.get(userId)
-      ? {
-          id: this.directory.users.get(userId)!.id,
-          email: this.directory.users.get(userId)!.email,
-          displayName: this.directory.users.get(userId)!.displayName,
-          createdAt: this.directory.users.get(userId)!.createdAt,
-          updatedAt: this.directory.users.get(userId)!.updatedAt,
-        }
-      : undefined;
+    const row = this.directory.users.get(userId);
+    return row ? toUser(row) : undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     const user = this.directory.getUserByEmail(email);
-    return user
-      ? {
-          id: user.id,
-          email: user.email,
-          displayName: user.displayName,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-        }
-      : undefined;
+    return user ? toUser(user) : undefined;
   }
 
-  async updateProfile(userId: string, displayName: string): Promise<User> {
-    const { data, error } = await this.admin.auth.admin.updateUserById(userId, {
-      user_metadata: { display_name: displayName },
+  async updateProfile(userId: string, displayName: string, accessToken?: string): Promise<User> {
+    if (!accessToken) throw new UnauthenticatedError('Missing bearer token');
+    const scoped = createClient(this.supabaseUrl, this.supabaseAnonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${accessToken}` } },
     });
-    if (error || !data.user) throw notFound('User not found');
-    const now = new Date().toISOString();
-    const user: User = {
-      id: data.user.id,
-      email: data.user.email ?? '',
+    const { data, error } = await scoped.auth.updateUser({ data: { display_name: displayName } });
+    if (error || !data.user || data.user.id !== userId) throw notFound('User not found');
+    const user = this.userFromSupabase(
+      data.user.id,
+      data.user.email ?? '',
       displayName,
-      createdAt: data.user.created_at ?? now,
-      updatedAt: now,
-    };
+      data.user.created_at,
+    );
     await this.upsertLocal(user);
     return user;
   }
