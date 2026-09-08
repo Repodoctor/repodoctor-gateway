@@ -52,7 +52,16 @@ export async function callService<T>(input: {
     throw new AppError({
       statusCode: response.status >= 500 ? 502 : response.status,
       error: response.status >= 500 ? 'Bad Gateway' : 'Error',
-      code: response.status === 401 ? 'UNAUTHENTICATED' : response.status === 404 ? 'NOT_FOUND' : 'BAD_GATEWAY',
+      code:
+        response.status === 401
+          ? 'UNAUTHENTICATED'
+          : response.status === 403
+            ? 'FORBIDDEN'
+            : response.status === 404
+              ? 'NOT_FOUND'
+              : response.status === 409
+                ? 'CONFLICT'
+                : 'BAD_GATEWAY',
       message: typeof (json as { message?: string }).message === 'string' ? (json as { message: string }).message : `Upstream ${input.path} failed`,
     });
   }

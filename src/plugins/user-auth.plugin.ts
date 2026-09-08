@@ -1,13 +1,11 @@
 import fp from 'fastify-plugin';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { UnauthenticatedError, type AuthPrincipal } from '@repodoctor/contracts';
-import { MemoryDirectory } from '../services/memory-store';
 import { createAuthService, type AuthService } from '../services/auth.service';
 import { OrganizationService } from '../services/organization.service';
 
 declare module 'fastify' {
   interface FastifyInstance {
-    directory: MemoryDirectory;
     authService: AuthService;
     organizationService: OrganizationService;
     authenticate: (request: FastifyRequest) => Promise<AuthPrincipal>;
@@ -15,11 +13,9 @@ declare module 'fastify' {
 }
 
 const userAuthPlugin: FastifyPluginAsync = async (fastify) => {
-  const directory = new MemoryDirectory();
-  const authService = createAuthService(fastify.config, directory);
-  const organizationService = new OrganizationService(directory);
+  const organizationService = new OrganizationService(fastify.config);
+  const authService = createAuthService(fastify.config, organizationService);
 
-  fastify.decorate('directory', directory);
   fastify.decorate('authService', authService);
   fastify.decorate('organizationService', organizationService);
   fastify.decorate('authenticate', async (request: FastifyRequest) => {
@@ -29,6 +25,11 @@ const userAuthPlugin: FastifyPluginAsync = async (fastify) => {
     }
     const token = header.slice('Bearer '.length);
     const user = await authService.userFromAccessToken(token);
+    await organizationService.ensureUser({
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+    });
     const principal: AuthPrincipal = {
       userId: user.id,
       email: user.email,

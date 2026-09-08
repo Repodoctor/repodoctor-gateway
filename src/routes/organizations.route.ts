@@ -119,12 +119,12 @@ const orgsRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (request, reply) => {
       const principal = await fastify.authenticate(request);
-      const target = await fastify.authService.getUserByEmail(request.body.email);
+      const target = await fastify.organizationService.getUserByEmail(request.body.email);
       if (!target) throw badRequest('User must sign up before being added to an organization');
       const member = await fastify.organizationService.addMember(
         principal.userId,
         request.params.organizationId,
-        { userId: target.id, role: request.body.role },
+        { email: request.body.email, role: request.body.role },
       );
       reply.code(201);
       return member;
@@ -166,6 +166,22 @@ const orgsRoute: FastifyPluginAsyncZod = async (fastify) => {
         request.params.organizationId,
         request.params.userId,
       );
+      return reply.code(204).send();
+    },
+  );
+
+  fastify.delete(
+    '/api/v1/organizations/:organizationId',
+    {
+      schema: {
+        tags: ['organizations'],
+        operationId: 'deleteOrganization',
+        params: z.object({ organizationId: z.string().uuid() }),
+      },
+    },
+    async (request, reply) => {
+      const principal = await fastify.authenticate(request);
+      await fastify.organizationService.delete(principal.userId, request.params.organizationId);
       return reply.code(204).send();
     },
   );

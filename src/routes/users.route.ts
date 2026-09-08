@@ -13,8 +13,11 @@ const usersRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (request) => {
       const principal = await fastify.authenticate(request);
-      const user = await fastify.authService.getUser(principal.userId);
-      return user!;
+      return fastify.organizationService.ensureUser({
+        id: principal.userId,
+        email: principal.email,
+        displayName: principal.displayName,
+      });
     },
   );
 

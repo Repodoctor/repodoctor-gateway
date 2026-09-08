@@ -1,112 +1,104 @@
-import {
-  AuthorizationError,
-  assertOrgRole,
-  conflict,
-  notFound,
-  type OrgRole,
-  type Organization,
-  type OrganizationMember,
+import type {
+  OrgRole,
+  Organization,
+  OrganizationMember,
+  User,
 } from '@repodoctor/contracts';
-import { MemoryDirectory, newId } from './memory-store';
-
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 80);
-}
+import { badRequest } from '@repodoctor/contracts';
+import type { AppConfig } from '../config/env';
+import { callService } from './upstream';
 
 export class OrganizationService {
-  constructor(private readonly directory: MemoryDirectory) {}
+  constructor(private readonly config: AppConfig) {}
+
+  private repo<T>(path: string, init: { method?: string; body?: unknown } = {}) {
+    return callService<T>({
+      baseUrl: this.config.repositoryServiceUrl,
+      path,
+      method: init.method,
+      body: init.body,
+      config: this.config,
+    });
+  }
+
+  async ensureUser(input: { id: string; email: string; displayName: string }): Promise<User> {
+    const { json } = await this.repo<User>('/internal/v1/users/ensure', {
+      method: 'POST',
+      body: input,
+    });
+    return json;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const { json } = await this.repo<{ user?: User }>(
+      `/internal/v1/users?email=${encodeURIComponent(email)}`,
+    );
+    return json.user;
+  }
+
+  async getUser(userId: string): Promise<User | undefined> {
+    const { json } = await this.repo<{ user?: User }>(`/internal/v1/users/${userId}`);
+    return json.user;
+  }
 
   async create(userId: string, input: { name: string; slug?: string }): Promise<Organization> {
-    const slug = input.slug ?? slugify(input.name);
-    if (this.directory.organizationsBySlug.has(slug)) {
-      throw conflict('Organization slug already exists');
-    }
-    const now = new Date().toISOString();
-    const org: Organization = {
-      id: newId(),
-      name: input.name,
-      slug,
-      createdAt: now,
-      updatedAt: now,
-    };
-    this.directory.putOrganization(org);
-    this.directory.putMembership({
-      organizationId: org.id,
-      userId,
-      role: 'OWNER',
-      createdAt: now,
+    const { json } = await this.repo<Organization & { role: OrgRole }>('/internal/v1/organizations', {
+      method: 'POST',
+      body: { userId, name: input.name, slug: input.slug },
     });
-    return org;
+    return json;
   }
 
   async listForUser(userId: string): Promise<Array<Organization & { role: OrgRole }>> {
-    return this.directory
-      .membershipsForUser(userId)
-      .map((membership) => {
-        const org = this.directory.organizations.get(membership.organizationId);
-        if (!org) return undefined;
-        return { ...org, role: membership.role };
-      })
-      .filter((item): item is Organization & { role: OrgRole } => Boolean(item));
+    const { json } = await this.repo<{ items: Array<Organization & { role: OrgRole }> }>(
+      `/internal/v1/organizations?userId=${encodeURIComponent(userId)}`,
+    );
+    return json.items;
   }
 
   async get(userId: string, organizationId: string, required: OrgRole = 'VIEWER'): Promise<Organization> {
-    const org = this.directory.organizations.get(organizationId);
-    if (!org) throw notFound('Organization not found');
-    const membership = this.directory.memberships.get(
-      this.directory.membershipKey(organizationId, userId),
+    const query = new URLSearchParams({ userId, required });
+    const { json } = await this.repo<Organization>(
+      `/internal/v1/organizations/${organizationId}?${query.toString()}`,
     );
-    assertOrgRole(
-      membership
-        ? {
-            organizationId: membership.organizationId,
-            userId: membership.userId,
-            role: membership.role,
-            createdAt: membership.createdAt,
-          }
-        : undefined,
-      required,
-      organizationId,
-    );
-    return org;
+    return json;
   }
 
   async update(userId: string, organizationId: string, name: string): Promise<Organization> {
-    const org = await this.get(userId, organizationId, 'ADMIN');
-    org.name = name;
-    org.updatedAt = new Date().toISOString();
-    return org;
+    if (!name) throw badRequest('name is required');
+    const { json } = await this.repo<Organization>(`/internal/v1/organizations/${organizationId}`, {
+      method: 'PATCH',
+      body: { userId, name },
+    });
+    return json;
+  }
+
+  async delete(userId: string, organizationId: string): Promise<void> {
+    await this.repo(`/internal/v1/organizations/${organizationId}?userId=${encodeURIComponent(userId)}`, {
+      method: 'DELETE',
+    });
   }
 
   async listMembers(userId: string, organizationId: string): Promise<OrganizationMember[]> {
-    await this.get(userId, organizationId, 'VIEWER');
-    return this.directory.membersOf(organizationId);
+    const { json } = await this.repo<{ items: OrganizationMember[] }>(
+      `/internal/v1/organizations/${organizationId}/members?userId=${encodeURIComponent(userId)}`,
+    );
+    return json.items;
   }
 
   async addMember(
     actorUserId: string,
     organizationId: string,
-    target: { userId: string; role: OrgRole },
+    target: { email: string; role: OrgRole },
   ): Promise<OrganizationMember> {
-    await this.get(actorUserId, organizationId, 'ADMIN');
-    if (target.role === 'OWNER') {
-      throw new AuthorizationError('Ownership transfer is not supported via member invite');
-    }
-    const now = new Date().toISOString();
-    this.directory.putMembership({
-      organizationId,
-      userId: target.userId,
-      role: target.role,
-      createdAt: now,
-    });
-    const members = this.directory.membersOf(organizationId);
-    const added = members.find((member) => member.userId === target.userId);
-    if (!added) throw notFound('Member not found after insert');
-    return added;
+    const { json } = await this.repo<OrganizationMember>(
+      `/internal/v1/organizations/${organizationId}/members`,
+      {
+        method: 'POST',
+        body: { userId: actorUserId, email: target.email, role: target.role },
+      },
+    );
+    return json;
   }
 
   async updateMember(
@@ -115,28 +107,20 @@ export class OrganizationService {
     targetUserId: string,
     role: OrgRole,
   ): Promise<OrganizationMember> {
-    await this.get(actorUserId, organizationId, 'ADMIN');
-    if (role === 'OWNER') {
-      throw new AuthorizationError('Cannot assign OWNER via role update');
-    }
-    const key = this.directory.membershipKey(organizationId, targetUserId);
-    const existing = this.directory.memberships.get(key);
-    if (!existing) throw notFound('Member not found');
-    if (existing.role === 'OWNER') {
-      throw new AuthorizationError('Cannot change the organization owner role');
-    }
-    existing.role = role;
-    return this.directory.membersOf(organizationId).find((member) => member.userId === targetUserId)!;
+    const { json } = await this.repo<OrganizationMember>(
+      `/internal/v1/organizations/${organizationId}/members/${targetUserId}`,
+      {
+        method: 'PATCH',
+        body: { userId: actorUserId, role },
+      },
+    );
+    return json;
   }
 
   async removeMember(actorUserId: string, organizationId: string, targetUserId: string): Promise<void> {
-    await this.get(actorUserId, organizationId, 'ADMIN');
-    const key = this.directory.membershipKey(organizationId, targetUserId);
-    const existing = this.directory.memberships.get(key);
-    if (!existing) throw notFound('Member not found');
-    if (existing.role === 'OWNER') {
-      throw new AuthorizationError('Cannot remove the organization owner');
-    }
-    this.directory.memberships.delete(key);
+    await this.repo(
+      `/internal/v1/organizations/${organizationId}/members/${targetUserId}?userId=${encodeURIComponent(actorUserId)}`,
+      { method: 'DELETE' },
+    );
   }
 }

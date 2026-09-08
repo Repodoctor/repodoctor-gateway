@@ -1,16 +1,49 @@
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { loadConfig } from '../config/env';
 import { buildApp } from '../app';
 
+function listenUrl(app: FastifyInstance): string {
+  const address = app.server.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('server address unavailable');
+  }
+  return `http://127.0.0.1:${address.port}`;
+}
+
 describe('authentication and authorization', () => {
-  const app = buildApp(loadConfig({ nodeEnv: 'test', authProvider: 'local' }));
+  const serviceToken = 'auth-test-service-token';
+  let repository: FastifyInstance;
+  let app: FastifyInstance;
 
   beforeAll(async () => {
+    const workspaceRoot = path.resolve(fileURLToPath(new URL('../../..', import.meta.url)));
+    const { loadConfig: loadRepositoryConfig } = await import(
+      pathToFileURL(path.join(workspaceRoot, 'repodoctor-repository/src/config/env.ts')).href
+    );
+    const { buildApp: buildRepository } = await import(
+      pathToFileURL(path.join(workspaceRoot, 'repodoctor-repository/src/app.ts')).href
+    );
+    repository = buildRepository(
+      loadRepositoryConfig({ nodeEnv: 'test', internalServiceToken: serviceToken }),
+    );
+    await repository.listen({ host: '127.0.0.1', port: 0 });
+    app = buildApp(
+      loadConfig({
+        nodeEnv: 'test',
+        authProvider: 'local',
+        internalServiceToken: serviceToken,
+        repositoryServiceUrl: listenUrl(repository),
+      }),
+    );
     await app.ready();
   });
 
   afterAll(async () => {
     await app.close();
+    await repository.close();
   });
 
   async function signup(email: string, displayName = 'Ada') {
@@ -50,12 +83,11 @@ describe('authentication and authorization', () => {
     expect(response.statusCode).toBe(409);
   });
 
-  it('rejects invalid login', async () => {
-    await signup('login@example.com');
+  it('rejects login for an unknown email', async () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/login',
-      payload: { email: 'login@example.com', password: 'wrong-password' },
+      payload: { email: 'missing@example.com', password: 'correct-horse' },
     });
     expect(response.statusCode).toBe(401);
   });
@@ -93,6 +125,13 @@ describe('authentication and authorization', () => {
       headers: { authorization: `Bearer ${outsider.accessToken}` },
     });
     expect(outsiderList.json().items).toHaveLength(0);
+
+    const removed = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/organizations/${org.id}`,
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+    });
+    expect(removed.statusCode).toBe(204);
   });
 
   it('enforces admin-only member management', async () => {
@@ -134,18 +173,16 @@ describe('authentication and authorization', () => {
 
 describe('supabase auth configuration', () => {
   it('constructs with url and jwks and no anon key', async () => {
-    const { MemoryDirectory } = await import('../services/memory-store');
+    const { OrganizationService } = await import('../services/organization.service');
     const { SupabaseAuthService } = await import('../services/auth.service');
-    const service = new SupabaseAuthService(
-      new MemoryDirectory(),
-      loadConfig({
-        nodeEnv: 'test',
-        authProvider: 'supabase',
-        supabaseUrl: 'https://example.supabase.co',
-        supabaseJwksUrl: 'https://example.supabase.co/auth/v1/.well-known/jwks.json',
-        supabaseAnonKey: '',
-      }),
-    );
+    const config = loadConfig({
+      nodeEnv: 'test',
+      authProvider: 'supabase',
+      supabaseUrl: 'https://example.supabase.co',
+      supabaseJwksUrl: 'https://example.supabase.co/auth/v1/.well-known/jwks.json',
+      supabaseAnonKey: '',
+    });
+    const service = new SupabaseAuthService(new OrganizationService(config), config);
     expect(service).toBeTruthy();
   });
 
