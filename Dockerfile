@@ -1,23 +1,13 @@
-# Build context is a staging directory:
-#   contracts/  -> built @repodoctor/contracts sources
-#   service/    -> this service
-# GitHub Actions assembles that context. Local:
-#   ./scripts not required; see README.
-
-FROM node:22-alpine AS contracts
-WORKDIR /contracts
-COPY contracts/package.json contracts/package-lock.json* ./
-COPY contracts/tsconfig.json ./
-COPY contracts/src ./src
-RUN npm install && npm run build
+# Build from this repository root. @repodoctor/contracts is vendored at
+# vendor/contracts so CI and Docker do not need a sibling checkout.
 
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY --from=contracts /contracts /repodoctor-contracts
-COPY service/package.json service/package-lock.json* ./
+COPY package.json package-lock.json* ./
+COPY vendor ./vendor
 RUN npm install
-COPY service/tsconfig.json ./
-COPY service/src ./src
+COPY tsconfig.json ./
+COPY src ./src
 RUN npm run build && npm prune --omit=dev
 
 FROM node:22-alpine AS runtime
@@ -28,7 +18,7 @@ RUN addgroup -S app && adduser -S app -G app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/package.json ./package.json
-COPY --from=build /repodoctor-contracts /repodoctor-contracts
+COPY --from=build /app/vendor ./vendor
 USER app
 EXPOSE 43121
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
