@@ -28,8 +28,8 @@ jobs:
           node-version: '22'
       - name: Install contracts
         working-directory: ../repodoctor-contracts
-        run: npm ci && npm run build
-      - run: npm ci
+        run: npm install && npm run build
+      - run: npm install
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
