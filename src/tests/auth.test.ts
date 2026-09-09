@@ -1,9 +1,13 @@
 import path from 'node:path';
+import { existsSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { loadConfig } from '../config/env';
 import { buildApp } from '../app';
+
+const workspaceRoot = path.resolve(fileURLToPath(new URL('../../..', import.meta.url)));
+const repositoryAvailable = existsSync(path.join(workspaceRoot, 'repodoctor-repository', 'package.json'));
 
 function listenUrl(app: FastifyInstance): string {
   const address = app.server.address();
@@ -13,7 +17,7 @@ function listenUrl(app: FastifyInstance): string {
   return `http://127.0.0.1:${address.port}`;
 }
 
-describe('authentication and authorization', () => {
+describe.skipIf(!repositoryAvailable)('authentication and authorization', () => {
   const serviceToken = 'auth-test-service-token';
   let repository: FastifyInstance;
   let app: FastifyInstance;
