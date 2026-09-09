@@ -5,9 +5,20 @@ import type {
   OrganizationInvite,
   OrganizationInvitePreview,
   OrganizationMember,
+  RepoPermission,
+  Repository,
+  RepositoryAccess,
+  RepositoryAccessGrant,
+  RepositoryWithPermission,
   User,
 } from '@repodoctor/contracts';
-import { badRequest } from '@repodoctor/contracts';
+import {
+  assertRepoPermission,
+  badRequest,
+  effectiveRepoPermission,
+  hasRepoPermission,
+  notFound,
+} from '@repodoctor/contracts';
 import type { AppConfig } from '../config/env';
 import { callService } from './upstream';
 
@@ -94,6 +105,16 @@ export class OrganizationService {
     await this.purgeUpstream(this.config.findingsServiceUrl, `/internal/organizations/${organizationId}`);
     await this.repo(`/internal/v1/organizations/${organizationId}?userId=${encodeURIComponent(userId)}`, {
       method: 'DELETE',
+    });
+  }
+
+  async disconnectGithub(userId: string, organizationId: string): Promise<void> {
+    await this.get(userId, organizationId, 'ADMIN');
+    await callService({
+      baseUrl: this.config.scmServiceUrl,
+      path: `/internal/organizations/${organizationId}/github`,
+      method: 'DELETE',
+      config: this.config,
     });
   }
 
@@ -202,6 +223,126 @@ export class OrganizationService {
       `/internal/v1/organizations/${organizationId}/members/${targetUserId}?userId=${encodeURIComponent(actorUserId)}`,
       { method: 'DELETE' },
     );
+    try {
+      await this.repo(
+        `/internal/v1/repository-access?organizationId=${encodeURIComponent(organizationId)}&userId=${encodeURIComponent(targetUserId)}`,
+        { method: 'DELETE' },
+      );
+    } catch {
+      // Access rows may already be gone.
+    }
+  }
+
+  async listRepositoryAccess(repositoryId: string): Promise<RepositoryAccess[]> {
+    const { json } = await this.repo<{ items: RepositoryAccess[] }>(
+      `/internal/v1/repositories/${repositoryId}/access`,
+    );
+    return json.items ?? [];
+  }
+
+  async listRepositoryAccessForUser(userId: string, organizationId?: string): Promise<RepositoryAccess[]> {
+    const query = new URLSearchParams({ userId });
+    if (organizationId) query.set('organizationId', organizationId);
+    const { json } = await this.repo<{ items: RepositoryAccess[] }>(
+      `/internal/v1/repository-access?${query.toString()}`,
+    );
+    return json.items ?? [];
+  }
+
+  async upsertRepositoryAccess(
+    repositoryId: string,
+    userId: string,
+    permission: RepoPermission,
+  ): Promise<RepositoryAccess> {
+    const { json } = await this.repo<RepositoryAccess>(
+      `/internal/v1/repositories/${repositoryId}/access/${userId}`,
+      { method: 'PUT', body: { permission } },
+    );
+    return json;
+  }
+
+  async deleteRepositoryAccess(repositoryId: string, userId: string): Promise<void> {
+    await this.repo(`/internal/v1/repositories/${repositoryId}/access/${userId}`, { method: 'DELETE' });
+  }
+
+  async permissionFor(userId: string, organizationId: string, repositoryId: string): Promise<RepoPermission> {
+    const org = await this.get(userId, organizationId, 'VIEWER');
+    const overrides = await this.listRepositoryAccessForUser(userId, organizationId);
+    const override = overrides.find((item) => item.repositoryId === repositoryId);
+    return effectiveRepoPermission(org.role, override?.permission);
+  }
+
+  async assertRepoAccess(
+    userId: string,
+    organizationId: string,
+    repositoryId: string,
+    required: RepoPermission,
+  ): Promise<RepoPermission> {
+    return assertRepoPermission(await this.permissionFor(userId, organizationId, repositoryId), required);
+  }
+
+  async withRepoPermissions(userId: string, items: Repository[]): Promise<RepositoryWithPermission[]> {
+    if (items.length === 0) return [];
+    const orgs = await this.listForUser(userId);
+    const roleByOrg = new Map(orgs.map((org) => [org.id, org.role]));
+    const overrides = await this.listRepositoryAccessForUser(userId);
+    const overrideByRepo = new Map(overrides.map((item) => [item.repositoryId, item.permission]));
+    return items.flatMap((item) => {
+      const role = roleByOrg.get(item.organizationId);
+      if (!role) return [];
+      const permission = effectiveRepoPermission(role, overrideByRepo.get(item.id));
+      if (!hasRepoPermission(permission, 'VIEW')) return [];
+      return [{ ...item, permission }];
+    });
+  }
+
+  async listAccessGrants(actorUserId: string, repository: Repository): Promise<RepositoryAccessGrant[]> {
+    await this.assertRepoAccess(actorUserId, repository.organizationId, repository.id, 'ADMIN');
+    const members = await this.listMembers(actorUserId, repository.organizationId);
+    const overrides = await this.listRepositoryAccess(repository.id);
+    const overrideByUser = new Map(overrides.map((item) => [item.userId, item.permission]));
+    return members.map((member) => {
+      const override = overrideByUser.get(member.userId);
+      const permission = effectiveRepoPermission(member.role, override);
+      const source = member.role === 'OWNER' || member.role === 'ADMIN' || !override ? 'role' : 'override';
+      return {
+        userId: member.userId,
+        email: member.email,
+        displayName: member.displayName,
+        role: member.role,
+        permission,
+        source,
+      };
+    });
+  }
+
+  async setAccessGrant(
+    actorUserId: string,
+    repository: Repository,
+    targetUserId: string,
+    permission: RepoPermission,
+  ): Promise<RepositoryAccessGrant> {
+    await this.assertRepoAccess(actorUserId, repository.organizationId, repository.id, 'ADMIN');
+    const members = await this.listMembers(actorUserId, repository.organizationId);
+    const target = members.find((member) => member.userId === targetUserId);
+    if (!target) throw notFound('Member not found');
+    if (target.role === 'OWNER' || target.role === 'ADMIN') {
+      throw badRequest('Organization owners and admins always have repository ADMIN');
+    }
+    await this.upsertRepositoryAccess(repository.id, targetUserId, permission);
+    return {
+      userId: target.userId,
+      email: target.email,
+      displayName: target.displayName,
+      role: target.role,
+      permission: effectiveRepoPermission(target.role, permission),
+      source: 'override',
+    };
+  }
+
+  async clearAccessGrant(actorUserId: string, repository: Repository, targetUserId: string): Promise<void> {
+    await this.assertRepoAccess(actorUserId, repository.organizationId, repository.id, 'ADMIN');
+    await this.deleteRepositoryAccess(repository.id, targetUserId);
   }
 }
 

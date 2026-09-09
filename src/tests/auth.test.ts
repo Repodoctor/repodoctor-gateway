@@ -207,6 +207,98 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
     });
     expect(orgs.json().items).toHaveLength(1);
   });
+
+  it('enforces repository permission overrides for analysis', async () => {
+    const owner = await signup('repo-admin@example.com', 'Admin');
+    const viewer = await signup('repo-viewer@example.com', 'Viewer');
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/organizations',
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+      payload: { name: 'Perms Co', slug: 'perms-co' },
+    });
+    const orgId = created.json().id as string;
+    await app.inject({
+      method: 'POST',
+      url: `/api/v1/organizations/${orgId}/members`,
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+      payload: { email: 'repo-viewer@example.com', role: 'VIEWER' },
+    });
+    const { createDomainEvent, Topics, mintServiceJwt } = await import('@repodoctor/contracts');
+    const serviceJwt = await mintServiceJwt({
+      secret: serviceToken,
+      issuer: 'repodoctor-scm',
+      ttlSeconds: 60,
+    });
+    const connected = await repository.inject({
+      method: 'POST',
+      url: '/internal/events',
+      headers: { authorization: `Bearer ${serviceJwt}`, 'x-service-token': serviceJwt },
+      payload: {
+        topic: Topics.REPOSITORY_CONNECTED,
+        message: createDomainEvent({
+          eventId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+          topic: Topics.REPOSITORY_CONNECTED,
+          correlationId: 'corr-perms',
+          organizationId: orgId,
+          payload: {
+            installationId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+            scmProvider: 'github',
+            scmRepositoryId: '2002',
+            owner: 'acme',
+            name: 'web',
+            fullName: 'acme/web',
+            defaultBranch: 'main',
+            private: true,
+            url: 'https://github.com/acme/web',
+            requestAnalysis: false,
+          },
+        }),
+      },
+    });
+    expect(connected.statusCode).toBe(202);
+    const listed = await app.inject({
+      method: 'GET',
+      url: `/api/v1/repositories?organizationId=${orgId}`,
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+    });
+    expect(listed.statusCode).toBe(200);
+    const repositoryId = listed.json().items[0].id as string;
+    expect(listed.json().items[0].permission).toBe('ADMIN');
+
+    const viewerRepo = await app.inject({
+      method: 'GET',
+      url: `/api/v1/repositories/${repositoryId}`,
+      headers: { authorization: `Bearer ${viewer.accessToken}` },
+    });
+    expect(viewerRepo.statusCode).toBe(200);
+    expect(viewerRepo.json().permission).toBe('VIEW');
+
+    const forbidden = await app.inject({
+      method: 'POST',
+      url: `/api/v1/repositories/${repositoryId}/analysis?organizationId=${orgId}`,
+      headers: { authorization: `Bearer ${viewer.accessToken}` },
+      payload: { type: 'FULL', trigger: 'MANUAL', commitSha: 'abc1234', branch: 'main' },
+    });
+    expect(forbidden.statusCode).toBe(403);
+
+    const granted = await app.inject({
+      method: 'PUT',
+      url: `/api/v1/repositories/${repositoryId}/access/${viewer.user.id}`,
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+      payload: { permission: 'ANALYZE' },
+    });
+    expect(granted.statusCode).toBe(200);
+    expect(granted.json().permission).toBe('ANALYZE');
+
+    const allowed = await app.inject({
+      method: 'POST',
+      url: `/api/v1/repositories/${repositoryId}/analysis?organizationId=${orgId}`,
+      headers: { authorization: `Bearer ${viewer.accessToken}` },
+      payload: { type: 'FULL', trigger: 'MANUAL', commitSha: 'abc1234', branch: 'main' },
+    });
+    expect(allowed.statusCode).toBe(202);
+  });
 });
 
 describe('repository upstream failures', () => {

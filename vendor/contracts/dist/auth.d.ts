@@ -19,6 +19,8 @@ export declare function hasOrgRole(actual: OrgRole, required: OrgRole): boolean;
 export declare function hasRepoPermission(actual: RepoPermission, required: RepoPermission): boolean;
 /** Default repository permission granted by an organization role. */
 export declare function defaultRepoPermissionForOrgRole(role: OrgRole): RepoPermission;
+/** OWNER/ADMIN always have repo ADMIN. Everyone else uses an override or the org-role default. */
+export declare function effectiveRepoPermission(role: OrgRole, override?: RepoPermission | null): RepoPermission;
 export declare const authPrincipalSchema: z.ZodObject<{
     userId: z.ZodString;
     email: z.ZodString;

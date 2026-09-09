@@ -81,6 +81,11 @@ describe('github app install proxy', () => {
           sendJson(response, 200, org);
           return;
         }
+        if (request.method === 'DELETE' && url.pathname.startsWith('/internal/organizations/')) {
+          response.writeHead(204);
+          response.end();
+          return;
+        }
         sendJson(response, 404, { message: `missing ${request.method} ${url.pathname}` });
       })().catch(() => {
         sendJson(response, 500, { message: 'mock failed' });
@@ -142,5 +147,34 @@ describe('github app install proxy', () => {
     expect(response.json().url).toBe(
       `https://github.com/apps/repodoctor-app/installations/new?state=${organizationId}`,
     );
+  });
+
+  it('disconnects GitHub without deleting the organization', async () => {
+    const signup = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/signup',
+      payload: { email: 'scm-disconnect@example.com', password: 'correct-horse', displayName: 'Owner' },
+    });
+    const token = signup.json().accessToken as string;
+    const org = await app.inject({
+      method: 'POST',
+      url: '/api/v1/organizations',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { name: 'Disconnect Co', slug: 'disconnect-co' },
+    });
+    const organizationId = org.json().id as string;
+    const disconnected = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/organizations/${organizationId}/scm/github`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(disconnected.statusCode).toBe(204);
+    const stillThere = await app.inject({
+      method: 'GET',
+      url: `/api/v1/organizations/${organizationId}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(stillThere.statusCode).toBe(200);
+    expect(stillThere.json().id).toBe(organizationId);
   });
 });

@@ -4,6 +4,7 @@ exports.UnauthenticatedError = exports.AuthorizationError = exports.membershipSc
 exports.hasOrgRole = hasOrgRole;
 exports.hasRepoPermission = hasRepoPermission;
 exports.defaultRepoPermissionForOrgRole = defaultRepoPermissionForOrgRole;
+exports.effectiveRepoPermission = effectiveRepoPermission;
 exports.assertOrgRole = assertOrgRole;
 exports.assertRepoPermission = assertRepoPermission;
 const zod_1 = require("zod");
@@ -38,6 +39,12 @@ function defaultRepoPermissionForOrgRole(role) {
         case 'VIEWER':
             return 'VIEW';
     }
+}
+/** OWNER/ADMIN always have repo ADMIN. Everyone else uses an override or the org-role default. */
+function effectiveRepoPermission(role, override) {
+    if (role === 'OWNER' || role === 'ADMIN')
+        return 'ADMIN';
+    return override ?? defaultRepoPermissionForOrgRole(role);
 }
 exports.authPrincipalSchema = zod_1.z.object({
     userId: zod_1.z.string().uuid(),

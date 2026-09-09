@@ -29,7 +29,42 @@ export declare const repositorySchema: z.ZodObject<{
 }, z.core.$strip>;
 export type Repository = z.infer<typeof repositorySchema>;
 export declare const repositoryAccessSchema: z.ZodObject<{
+    organizationId: z.ZodString;
     repositoryId: z.ZodString;
+    userId: z.ZodString;
+    permission: z.ZodEnum<{
+        ADMIN: "ADMIN";
+        VIEW: "VIEW";
+        ANALYZE: "ANALYZE";
+        MANAGE: "MANAGE";
+    }>;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+}, z.core.$strip>;
+export type RepositoryAccess = z.infer<typeof repositoryAccessSchema>;
+export declare const repositoryAccessGrantSchema: z.ZodObject<{
+    userId: z.ZodString;
+    email: z.ZodString;
+    displayName: z.ZodString;
+    role: z.ZodEnum<{
+        OWNER: "OWNER";
+        ADMIN: "ADMIN";
+        MEMBER: "MEMBER";
+        VIEWER: "VIEWER";
+    }>;
+    permission: z.ZodEnum<{
+        ADMIN: "ADMIN";
+        VIEW: "VIEW";
+        ANALYZE: "ANALYZE";
+        MANAGE: "MANAGE";
+    }>;
+    source: z.ZodEnum<{
+        role: "role";
+        override: "override";
+    }>;
+}, z.core.$strip>;
+export type RepositoryAccessGrant = z.infer<typeof repositoryAccessGrantSchema>;
+export declare const updateRepositoryAccessBodySchema: z.ZodObject<{
     permission: z.ZodEnum<{
         ADMIN: "ADMIN";
         VIEW: "VIEW";
@@ -37,7 +72,35 @@ export declare const repositoryAccessSchema: z.ZodObject<{
         MANAGE: "MANAGE";
     }>;
 }, z.core.$strip>;
-export type RepositoryAccess = z.infer<typeof repositoryAccessSchema>;
+export type UpdateRepositoryAccessBody = z.infer<typeof updateRepositoryAccessBodySchema>;
+export declare const repositoryWithPermissionSchema: z.ZodObject<{
+    id: z.ZodString;
+    organizationId: z.ZodString;
+    scmProvider: z.ZodEnum<{
+        github: "github";
+        gitlab: "gitlab";
+        bitbucket: "bitbucket";
+        azure_devops: "azure_devops";
+    }>;
+    scmRepositoryId: z.ZodString;
+    installationId: z.ZodString;
+    owner: z.ZodString;
+    name: z.ZodString;
+    fullName: z.ZodString;
+    defaultBranch: z.ZodString;
+    private: z.ZodBoolean;
+    url: z.ZodString;
+    lastAnalyzedAt: z.ZodNullable<z.ZodString>;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    permission: z.ZodEnum<{
+        ADMIN: "ADMIN";
+        VIEW: "VIEW";
+        ANALYZE: "ANALYZE";
+        MANAGE: "MANAGE";
+    }>;
+}, z.core.$strip>;
+export type RepositoryWithPermission = z.infer<typeof repositoryWithPermissionSchema>;
 export declare const scmInstallationSchema: z.ZodObject<{
     id: z.ZodString;
     organizationId: z.ZodString;

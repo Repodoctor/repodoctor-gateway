@@ -1,6 +1,6 @@
 import type { FastifyPluginAsyncZod } from '@fastify/type-provider-zod';
 import { z } from 'zod';
-import { findingSchema, paginatedResponseSchema, paginationQuerySchema, type Finding } from '@repodoctor/contracts';
+import { findingSchema, paginatedResponseSchema, paginationQuerySchema, type Finding, type Repository } from '@repodoctor/contracts';
 import { callService } from '../services/upstream';
 
 const findingsGatewayRoute: FastifyPluginAsyncZod = async (fastify) => {
@@ -18,12 +18,26 @@ const findingsGatewayRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (request) => {
       const principal = await fastify.authenticate(request);
-      const organizationIds = request.query.organizationId
-        ? [request.query.organizationId]
-        : (await fastify.organizationService.listForUser(principal.userId)).map((org) => org.id);
       if (request.query.organizationId) {
         await fastify.organizationService.get(principal.userId, request.query.organizationId, 'VIEWER');
       }
+      if (request.query.repositoryId) {
+        const result = await callService<Repository>({
+          baseUrl: fastify.config.repositoryServiceUrl,
+          path: `/api/v1/repositories/${request.query.repositoryId}`,
+          config: fastify.config,
+          correlationId: request.correlationId,
+        });
+        await fastify.organizationService.assertRepoAccess(
+          principal.userId,
+          result.json.organizationId,
+          result.json.id,
+          'VIEW',
+        );
+      }
+      const organizationIds = request.query.organizationId
+        ? [request.query.organizationId]
+        : (await fastify.organizationService.listForUser(principal.userId)).map((org) => org.id);
       if (organizationIds.length === 0 || !fastify.config.findingsServiceUrl.trim()) {
         return { items: [], page: request.query.page, pageSize: request.query.pageSize, total: 0 };
       }

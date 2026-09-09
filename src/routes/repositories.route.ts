@@ -4,8 +4,10 @@ import {
   analysisRunSchema,
   paginatedResponseSchema,
   paginationQuerySchema,
-  repositorySchema,
+  repositoryAccessGrantSchema,
+  repositoryWithPermissionSchema,
   scmInstallationSchema,
+  updateRepositoryAccessBodySchema,
   type AnalysisRun,
   type Repository,
   type ScmInstallation,
@@ -99,13 +101,28 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  fastify.delete(
+    '/api/v1/organizations/:organizationId/scm/github',
+    {
+      schema: {
+        tags: ['scm'],
+        params: z.object({ organizationId: z.string().uuid() }),
+      },
+    },
+    async (request, reply) => {
+      const principal = await fastify.authenticate(request);
+      await fastify.organizationService.disconnectGithub(principal.userId, request.params.organizationId);
+      return reply.code(204).send();
+    },
+  );
+
   fastify.get(
     '/api/v1/repositories',
     {
       schema: {
         tags: ['repositories'],
         querystring: paginationQuerySchema.extend({ organizationId: z.string().uuid().optional() }),
-        response: { 200: paginatedResponseSchema(repositorySchema) },
+        response: { 200: paginatedResponseSchema(repositoryWithPermissionSchema) },
       },
     },
     async (request) => {
@@ -126,7 +143,8 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
           config: fastify.config,
           correlationId: request.correlationId,
         });
-        return result.json;
+        const items = await fastify.organizationService.withRepoPermissions(principal.userId, result.json.items);
+        return { ...result.json, items, total: items.length };
       }
       await fastify.organizationService.get(principal.userId, request.query.organizationId, 'VIEWER');
       const result = await callService<{ items: Repository[]; page: number; pageSize: number; total: number }>({
@@ -135,7 +153,8 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
         config: fastify.config,
         correlationId: request.correlationId,
       });
-      return result.json;
+      const items = await fastify.organizationService.withRepoPermissions(principal.userId, result.json.items);
+      return { ...result.json, items, total: items.length };
     },
   );
 
@@ -146,7 +165,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
         tags: ['repositories'],
         params: z.object({ repositoryId: z.string().uuid() }),
         querystring: z.object({ organizationId: z.string().uuid().optional() }),
-        response: { 200: repositorySchema },
+        response: { 200: repositoryWithPermissionSchema },
       },
     },
     async (request) => {
@@ -160,11 +179,98 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
         config: fastify.config,
         correlationId: request.correlationId,
       });
-      await fastify.organizationService.get(principal.userId, result.json.organizationId, 'VIEWER');
+      const permission = await fastify.organizationService.assertRepoAccess(
+        principal.userId,
+        result.json.organizationId,
+        result.json.id,
+        'VIEW',
+      );
       if (request.query.organizationId && request.query.organizationId !== result.json.organizationId) {
         throw badRequest('Repository does not belong to the requested organization');
       }
-      return result.json;
+      return { ...result.json, permission };
+    },
+  );
+
+  fastify.get(
+    '/api/v1/repositories/:repositoryId/access',
+    {
+      schema: {
+        tags: ['repositories'],
+        params: z.object({ repositoryId: z.string().uuid() }),
+        querystring: z.object({ organizationId: z.string().uuid().optional() }),
+        response: { 200: z.object({ items: z.array(repositoryAccessGrantSchema) }) },
+      },
+    },
+    async (request) => {
+      const principal = await fastify.authenticate(request);
+      const qs = request.query.organizationId
+        ? `?organizationId=${request.query.organizationId}`
+        : '';
+      const result = await callService<Repository>({
+        baseUrl: fastify.config.repositoryServiceUrl,
+        path: `/api/v1/repositories/${request.params.repositoryId}${qs}`,
+        config: fastify.config,
+        correlationId: request.correlationId,
+      });
+      const items = await fastify.organizationService.listAccessGrants(principal.userId, result.json);
+      return { items };
+    },
+  );
+
+  fastify.put(
+    '/api/v1/repositories/:repositoryId/access/:userId',
+    {
+      schema: {
+        tags: ['repositories'],
+        params: z.object({ repositoryId: z.string().uuid(), userId: z.string().uuid() }),
+        querystring: z.object({ organizationId: z.string().uuid().optional() }),
+        body: updateRepositoryAccessBodySchema,
+        response: { 200: repositoryAccessGrantSchema },
+      },
+    },
+    async (request) => {
+      const principal = await fastify.authenticate(request);
+      const qs = request.query.organizationId
+        ? `?organizationId=${request.query.organizationId}`
+        : '';
+      const result = await callService<Repository>({
+        baseUrl: fastify.config.repositoryServiceUrl,
+        path: `/api/v1/repositories/${request.params.repositoryId}${qs}`,
+        config: fastify.config,
+        correlationId: request.correlationId,
+      });
+      return fastify.organizationService.setAccessGrant(
+        principal.userId,
+        result.json,
+        request.params.userId,
+        request.body.permission,
+      );
+    },
+  );
+
+  fastify.delete(
+    '/api/v1/repositories/:repositoryId/access/:userId',
+    {
+      schema: {
+        tags: ['repositories'],
+        params: z.object({ repositoryId: z.string().uuid(), userId: z.string().uuid() }),
+        querystring: z.object({ organizationId: z.string().uuid().optional() }),
+      },
+    },
+    async (request, reply) => {
+      const principal = await fastify.authenticate(request);
+      const qs = request.query.organizationId
+        ? `?organizationId=${request.query.organizationId}`
+        : '';
+      const result = await callService<Repository>({
+        baseUrl: fastify.config.repositoryServiceUrl,
+        path: `/api/v1/repositories/${request.params.repositoryId}${qs}`,
+        config: fastify.config,
+        correlationId: request.correlationId,
+      });
+      await fastify.organizationService.clearAccessGrant(principal.userId, result.json, request.params.userId);
+      return reply.code(204).send();
     },
   );
 
@@ -179,7 +285,12 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (request, reply) => {
       const principal = await fastify.authenticate(request);
-      await fastify.organizationService.get(principal.userId, request.query.organizationId, 'MEMBER');
+      await fastify.organizationService.assertRepoAccess(
+        principal.userId,
+        request.query.organizationId,
+        request.params.repositoryId,
+        'ANALYZE',
+      );
       const result = await callService({
         baseUrl: fastify.config.repositoryServiceUrl,
         path: `/api/v1/repositories/${request.params.repositoryId}/analysis?organizationId=${request.query.organizationId}`,
@@ -210,7 +321,12 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       if (!request.query.organizationId || !request.query.repositoryId) {
         return { items: [] };
       }
-      await fastify.organizationService.get(principal.userId, request.query.organizationId, 'VIEWER');
+      await fastify.organizationService.assertRepoAccess(
+        principal.userId,
+        request.query.organizationId,
+        request.query.repositoryId,
+        'VIEW',
+      );
       const result = await callService<{ items: AnalysisRun[] }>({
         baseUrl: fastify.config.repositoryServiceUrl,
         path: `/api/v1/analysis?organizationId=${request.query.organizationId}&repositoryId=${request.query.repositoryId}`,
