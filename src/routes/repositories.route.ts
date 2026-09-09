@@ -2,23 +2,78 @@ import type { FastifyPluginAsyncZod } from '@fastify/type-provider-zod';
 import { z } from 'zod';
 import {
   analysisRunSchema,
-  connectGithubInstallationBodySchema,
   paginatedResponseSchema,
   paginationQuerySchema,
   repositorySchema,
+  scmInstallationSchema,
   type AnalysisRun,
   type Repository,
+  type ScmInstallation,
 } from '@repodoctor/contracts';
+import { badRequest } from '@repodoctor/contracts';
 import { callService } from '../services/upstream';
 
 const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
+  fastify.get(
+    '/api/v1/organizations/:organizationId/scm',
+    {
+      schema: {
+        tags: ['scm'],
+        params: z.object({ organizationId: z.string().uuid() }),
+        response: { 200: z.object({ items: z.array(scmInstallationSchema) }) },
+      },
+    },
+    async (request) => {
+      const principal = await fastify.authenticate(request);
+      await fastify.organizationService.get(principal.userId, request.params.organizationId, 'VIEWER');
+      const result = await callService<{ items: ScmInstallation[] }>({
+        baseUrl: fastify.config.scmServiceUrl,
+        path: `/internal/installations?organizationId=${request.params.organizationId}`,
+        config: fastify.config,
+        correlationId: request.correlationId,
+      });
+      return { items: result.json.items ?? [] };
+    },
+  );
+
+  fastify.get(
+    '/api/v1/organizations/:organizationId/scm/github/install',
+    {
+      schema: {
+        tags: ['scm'],
+        params: z.object({ organizationId: z.string().uuid() }),
+        response: { 200: z.object({ url: z.string().url(), slug: z.string() }) },
+      },
+    },
+    async (request) => {
+      const principal = await fastify.authenticate(request);
+      await fastify.organizationService.get(principal.userId, request.params.organizationId, 'MEMBER');
+      const result = await callService<{ slug: string; configured: boolean }>({
+        baseUrl: fastify.config.scmServiceUrl,
+        path: '/internal/github/app',
+        config: fastify.config,
+        correlationId: request.correlationId,
+      });
+      const slug = result.json.slug?.trim();
+      if (!slug) {
+        throw badRequest('GitHub App slug is not configured on the SCM service');
+      }
+      const url = new URL(`https://github.com/apps/${encodeURIComponent(slug)}/installations/new`);
+      url.searchParams.set('state', request.params.organizationId);
+      return { url: url.toString(), slug };
+    },
+  );
+
   fastify.post(
     '/api/v1/organizations/:organizationId/scm/github',
     {
       schema: {
         tags: ['scm'],
         params: z.object({ organizationId: z.string().uuid() }),
-        body: connectGithubInstallationBodySchema,
+        body: z.object({
+          externalInstallationId: z.string().min(1),
+          accountLogin: z.string().min(1).optional(),
+        }),
       },
     },
     async (request, reply) => {
