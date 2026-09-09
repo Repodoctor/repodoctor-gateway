@@ -176,6 +176,7 @@ export class LocalAuthService implements AuthService {
 /** Production path: verify Supabase user JWTs with JWKS. Sign-in lives on the dashboard. */
 export class SupabaseAuthService implements AuthService {
   private readonly jwks: JWTVerifyGetKey & { reload?: () => Promise<void> };
+  private readonly issuer: string;
 
   constructor(
     private readonly identity: OrganizationService,
@@ -184,6 +185,7 @@ export class SupabaseAuthService implements AuthService {
     if (!config.supabaseUrl || !config.supabaseJwksUrl) {
       throw new Error('Supabase auth requires SUPABASE_URL and SUPABASE_JWKS_URL');
     }
+    this.issuer = `${config.supabaseUrl.replace(/\/+$/, '')}/auth/v1`;
     this.jwks = createRemoteJWKSet(new URL(config.supabaseJwksUrl), {
       cacheMaxAge: 10 * 60 * 1000,
       cooldownDuration: 30_000,
@@ -222,7 +224,10 @@ export class SupabaseAuthService implements AuthService {
 
   async userFromAccessToken(token: string): Promise<User> {
     try {
-      const { payload } = await jwtVerify(token, this.jwks);
+      const { payload } = await jwtVerify(token, this.jwks, {
+        issuer: this.issuer,
+        audience: 'authenticated',
+      });
       const userId = typeof payload.sub === 'string' ? payload.sub : undefined;
       const email = typeof payload.email === 'string' ? payload.email : metadataString(payload, 'email');
       if (!userId || !email) {

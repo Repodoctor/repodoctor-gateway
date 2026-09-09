@@ -1,15 +1,28 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.INTERNAL_SERVICE_AUDIENCE = void 0;
+exports.SERVICE_ISSUERS = exports.INTERNAL_SERVICE_AUDIENCE = void 0;
+exports.assertServiceIssuer = assertServiceIssuer;
 exports.mintServiceJwt = mintServiceJwt;
 exports.verifyServiceJwt = verifyServiceJwt;
 exports.assertInternalServiceToken = assertInternalServiceToken;
 exports.readServiceToken = readServiceToken;
 const node_crypto_1 = require("node:crypto");
 const jose_1 = require("jose");
+const auth_1 = require("./auth");
 const errors_1 = require("./errors");
 /** Shared audience for service-to-service JWTs on the private network. */
 exports.INTERNAL_SERVICE_AUDIENCE = 'repodoctor-internal';
+exports.SERVICE_ISSUERS = {
+    gateway: 'repodoctor-gateway',
+    scm: 'repodoctor-scm',
+    repository: 'repodoctor-repository',
+    findings: 'repodoctor-findings',
+};
+function assertServiceIssuer(iss, allowed) {
+    if (!allowed.includes(iss)) {
+        throw new auth_1.UnauthenticatedError('Service token is not allowed for this route');
+    }
+}
 function secretKey(secret) {
     if (!secret) {
         throw new errors_1.AppError({
@@ -34,7 +47,7 @@ async function mintServiceJwt(input) {
         .setJti((0, node_crypto_1.randomUUID)())
         .sign(secretKey(input.secret));
 }
-async function verifyServiceJwt(token, secret, audience = exports.INTERNAL_SERVICE_AUDIENCE) {
+async function verifyServiceJwt(token, secret, audience = exports.INTERNAL_SERVICE_AUDIENCE, allowedIssuers) {
     const { payload } = await (0, jose_1.jwtVerify)(token, secretKey(secret), {
         audience,
         algorithms: ['HS256'],
@@ -49,6 +62,8 @@ async function verifyServiceJwt(token, secret, audience = exports.INTERNAL_SERVI
             message: 'Service token is missing issuer/subject',
         });
     }
+    if (allowedIssuers)
+        assertServiceIssuer(iss, allowedIssuers);
     return { iss, sub, aud: audience };
 }
 function assertInternalServiceToken(token, nodeEnv) {

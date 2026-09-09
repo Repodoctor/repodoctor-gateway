@@ -1,4 +1,5 @@
 import type { FastifyPluginAsyncZod } from '@fastify/type-provider-zod';
+import { z } from 'zod';
 import { updateProfileBodySchema, userSchema } from '@repodoctor/contracts';
 
 const usersRoute: FastifyPluginAsyncZod = async (fastify) => {
@@ -35,6 +36,22 @@ const usersRoute: FastifyPluginAsyncZod = async (fastify) => {
       const principal = await fastify.authenticate(request);
       const accessToken = request.headers.authorization?.slice('Bearer '.length);
       return fastify.authService.updateProfile(principal.userId, request.body.displayName, accessToken);
+    },
+  );
+
+  fastify.delete(
+    '/api/v1/users/me',
+    {
+      schema: {
+        tags: ['users'],
+        operationId: 'deleteMe',
+        response: { 200: z.object({ deletedOrganizationIds: z.array(z.string().uuid()) }) },
+      },
+    },
+    async (request, reply) => {
+      const principal = await fastify.authenticate(request);
+      const result = await fastify.organizationService.deleteAccount(principal.userId);
+      return reply.code(200).send(result);
     },
   );
 };

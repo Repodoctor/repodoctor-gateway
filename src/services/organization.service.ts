@@ -233,6 +233,19 @@ export class OrganizationService {
     }
   }
 
+  async deleteAccount(userId: string): Promise<{ deletedOrganizationIds: string[] }> {
+    const orgs = await this.listForUser(userId);
+    const deletedOrganizationIds: string[] = [];
+    for (const org of orgs) {
+      if (org.role === 'OWNER') {
+        await this.delete(userId, org.id);
+        deletedOrganizationIds.push(org.id);
+      }
+    }
+    await this.repo(`/internal/v1/users/${userId}`, { method: 'DELETE' });
+    return { deletedOrganizationIds };
+  }
+
   async listRepositoryAccess(repositoryId: string): Promise<RepositoryAccess[]> {
     const { json } = await this.repo<{ items: RepositoryAccess[] }>(
       `/internal/v1/repositories/${repositoryId}/access`,

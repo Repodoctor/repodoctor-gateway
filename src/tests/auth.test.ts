@@ -208,6 +208,91 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
     expect(orgs.json().items).toHaveLength(1);
   });
 
+  it('rejects organization delete from a member', async () => {
+    const owner = await signup('org-owner@example.com', 'Owner');
+    const member = await signup('org-member@example.com', 'Member');
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/organizations',
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+      payload: { name: 'Locked Co', slug: 'locked-co' },
+    });
+    const orgId = created.json().id as string;
+    await app.inject({
+      method: 'POST',
+      url: `/api/v1/organizations/${orgId}/members`,
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+      payload: { email: 'org-member@example.com', role: 'MEMBER' },
+    });
+    const forbidden = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/organizations/${orgId}`,
+      headers: { authorization: `Bearer ${member.accessToken}` },
+    });
+    expect(forbidden.statusCode).toBe(403);
+    const stillThere = await app.inject({
+      method: 'GET',
+      url: `/api/v1/organizations/${orgId}`,
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+    });
+    expect(stillThere.statusCode).toBe(200);
+  });
+
+  it('deletes owned organizations when the account is removed', async () => {
+    const owner = await signup('gone@example.com', 'Gone');
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/organizations',
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+      payload: { name: 'Gone Co', slug: 'gone-co' },
+    });
+    expect(created.statusCode).toBe(201);
+    const removed = await app.inject({
+      method: 'DELETE',
+      url: '/api/v1/users/me',
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+    });
+    expect(removed.statusCode).toBe(200);
+    expect(removed.json().deletedOrganizationIds).toEqual([created.json().id]);
+    const missing = await app.inject({
+      method: 'GET',
+      url: '/api/v1/organizations',
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+    });
+    expect(missing.json().items).toHaveLength(0);
+  });
+
+  it('does not delete an organization when a member deletes their account', async () => {
+    const owner = await signup('keep-owner@example.com', 'Owner');
+    const member = await signup('keep-member@example.com', 'Member');
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/organizations',
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+      payload: { name: 'Keep Co', slug: 'keep-co' },
+    });
+    const orgId = created.json().id as string;
+    await app.inject({
+      method: 'POST',
+      url: `/api/v1/organizations/${orgId}/members`,
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+      payload: { email: 'keep-member@example.com', role: 'MEMBER' },
+    });
+    const removed = await app.inject({
+      method: 'DELETE',
+      url: '/api/v1/users/me',
+      headers: { authorization: `Bearer ${member.accessToken}` },
+    });
+    expect(removed.statusCode).toBe(200);
+    expect(removed.json().deletedOrganizationIds).toEqual([]);
+    const stillThere = await app.inject({
+      method: 'GET',
+      url: `/api/v1/organizations/${orgId}`,
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+    });
+    expect(stillThere.statusCode).toBe(200);
+  });
+
   it('enforces repository permission overrides for analysis', async () => {
     const owner = await signup('repo-admin@example.com', 'Admin');
     const viewer = await signup('repo-viewer@example.com', 'Viewer');
