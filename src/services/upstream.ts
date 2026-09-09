@@ -70,6 +70,7 @@ export async function callService<T>(input: {
       method: input.method ?? 'GET',
       headers,
       body,
+      signal: AbortSignal.timeout(input.config.upstreamTimeoutMs),
     });
   } catch {
     throw new AppError({

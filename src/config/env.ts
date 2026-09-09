@@ -30,6 +30,7 @@ export interface AppConfig {
   supabaseUrl: string;
   supabaseJwksUrl: string;
   supabaseAnonKey: string;
+  supabaseServiceRoleKey: string;
   scmServiceUrl: string;
   repositoryServiceUrl: string;
   findingsServiceUrl: string;
@@ -45,6 +46,7 @@ export interface AppConfig {
   analyticsServiceUrl: string;
   githubAppSlug: string;
   dashboardPublicUrl: string;
+  upstreamTimeoutMs: number;
 }
 
 function optionalEnv(name: string, fallback = ''): string {
@@ -78,7 +80,7 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     nodeEnv,
     host: optionalEnv('HOST', '0.0.0.0'),
     port: Number(optionalEnv('PORT', '43111')),
-    logLevel: optionalEnv('LOG_LEVEL', nodeEnv === 'production' ? 'info' : 'debug'),
+    logLevel: optionalEnv('LOG_LEVEL', nodeEnv === 'production' ? 'warn' : 'debug'),
     otelEndpoint: optionalEnv('OTEL_EXPORTER_OTLP_ENDPOINT', ''),
     corsOrigins: csvEnv(firstEnv(['CORS_ORIGIN', 'FRONTEND_ORIGIN'], DEFAULT_CORS)),
     internalServiceToken,
@@ -92,6 +94,7 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     supabaseUrl: optionalEnv('SUPABASE_URL', ''),
     supabaseJwksUrl: optionalEnv('SUPABASE_JWKS_URL', ''),
     supabaseAnonKey: firstEnv(['SUPABASE_ANON_KEY', 'SUPABASE_PUBLISHABLE_KEY'], ''),
+    supabaseServiceRoleKey: optionalEnv('SUPABASE_SERVICE_ROLE_KEY'),
     scmServiceUrl: firstEnv(['SCM_SERVICE_URL', 'SCM_BASE_URL'], 'http://127.0.0.1:43112'),
     repositoryServiceUrl: firstEnv(['REPOSITORY_SERVICE_URL', 'REPOSITORY_BASE_URL'], 'http://127.0.0.1:43113'),
     findingsServiceUrl: firstEnv(['FINDINGS_SERVICE_URL', 'FINDINGS_BASE_URL'], 'http://127.0.0.1:43114'),
@@ -107,6 +110,7 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     analyticsServiceUrl: optionalEnv('ANALYTICS_SERVICE_URL', 'http://127.0.0.1:43125'),
     githubAppSlug: optionalEnv('GITHUB_APP_SLUG', 'repodoctor-app'),
     dashboardPublicUrl: optionalEnv('DASHBOARD_PUBLIC_URL', 'https://repodoctor.dev'),
+    upstreamTimeoutMs: Number(optionalEnv('UPSTREAM_TIMEOUT_MS', '20000')),
     ...overrides,
   };
   if (config.nodeEnv === 'production' && !config.internalServiceToken) {

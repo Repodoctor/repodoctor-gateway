@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { existsSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import type { FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { loadConfig } from '../config/env';
 import { buildApp } from '../app';
@@ -20,6 +20,7 @@ function listenUrl(app: FastifyInstance): string {
 describe.skipIf(!repositoryAvailable)('authentication and authorization', () => {
   const serviceToken = 'auth-test-service-token';
   let repository: FastifyInstance;
+  let scm: FastifyInstance;
   let app: FastifyInstance;
 
   beforeAll(async () => {
@@ -34,12 +35,17 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
       loadRepositoryConfig({ nodeEnv: 'test', internalServiceToken: serviceToken }),
     );
     await repository.listen({ host: '127.0.0.1', port: 0 });
+    scm = Fastify();
+    scm.delete('/internal/organizations/:organizationId', async (_request, reply) => reply.code(204).send());
+    scm.delete('/internal/organizations/:organizationId/github', async (_request, reply) => reply.code(204).send());
+    await scm.listen({ host: '127.0.0.1', port: 0 });
     app = buildApp(
       loadConfig({
         nodeEnv: 'test',
         authProvider: 'local',
         internalServiceToken: serviceToken,
         repositoryServiceUrl: listenUrl(repository),
+        scmServiceUrl: listenUrl(scm),
       }),
     );
     await app.ready();
@@ -47,6 +53,7 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
 
   afterAll(async () => {
     await app.close();
+    await scm.close();
     await repository.close();
   });
 
@@ -400,10 +407,12 @@ describe('repository upstream failures', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/signup',
+      headers: { origin: 'https://repodoctor.dev' },
       payload: { email: 'ada@example.com', password: 'correct-horse', displayName: 'Ada' },
     });
     expect(response.statusCode).toBe(502);
     expect(response.json().code).toBe('BAD_GATEWAY');
+    expect(response.headers['access-control-allow-origin']).toBe('https://repodoctor.dev');
     await app.close();
   });
 });

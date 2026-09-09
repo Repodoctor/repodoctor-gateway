@@ -2,9 +2,19 @@ import fp from 'fastify-plugin';
 import { ZodError } from 'zod';
 import { AppError, apiError } from '@repodoctor/contracts';
 import { AuthorizationError, UnauthenticatedError } from '@repodoctor/contracts';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+
+function applyCors(request: FastifyRequest, reply: FastifyReply, origins: string[]): void {
+  const origin = request.headers.origin;
+  if (origin && origins.includes(origin)) {
+    reply.header('Access-Control-Allow-Origin', origin);
+    reply.header('Vary', 'Origin');
+  }
+}
 
 export default fp(async (fastify) => {
   fastify.setErrorHandler((error, request, reply) => {
+    applyCors(request, reply, fastify.config.corsOrigins);
     const requestId = request.requestId;
 
     if (error instanceof UnauthenticatedError) {

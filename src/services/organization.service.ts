@@ -21,6 +21,7 @@ import {
 } from '@repodoctor/contracts';
 import type { AppConfig } from '../config/env';
 import { callService } from './upstream';
+import { deleteAuthUser, inviteAuthUser } from './supabase-admin';
 
 export class OrganizationService {
   private readonly ensuredUsers = new Map<string, { user: User; at: number }>();
@@ -101,7 +102,12 @@ export class OrganizationService {
 
   async delete(userId: string, organizationId: string): Promise<void> {
     await this.get(userId, organizationId, 'ADMIN');
-    await this.purgeUpstream(this.config.scmServiceUrl, `/internal/organizations/${organizationId}`);
+    await callService({
+      baseUrl: this.config.scmServiceUrl,
+      path: `/internal/organizations/${organizationId}`,
+      method: 'DELETE',
+      config: this.config,
+    });
     await this.purgeUpstream(this.config.findingsServiceUrl, `/internal/organizations/${organizationId}`);
     await this.repo(`/internal/v1/organizations/${organizationId}?userId=${encodeURIComponent(userId)}`, {
       method: 'DELETE',
@@ -152,9 +158,11 @@ export class OrganizationService {
       },
     );
     if (json.status === 'invited') {
+      const invite = this.withSignupUrl(json.invite);
+      await this.sendInviteEmail(invite.email, invite.signupUrl ?? '');
       return {
         status: 'invited',
-        invite: this.withSignupUrl(json.invite),
+        invite,
       };
     }
     return json;
@@ -243,7 +251,31 @@ export class OrganizationService {
       }
     }
     await this.repo(`/internal/v1/users/${userId}`, { method: 'DELETE' });
+    await this.deleteGoTrueUser(userId);
     return { deletedOrganizationIds };
+  }
+
+  private async sendInviteEmail(email: string, signupUrl: string): Promise<void> {
+    if (this.config.authProvider !== 'supabase' || !this.config.supabaseServiceRoleKey || !this.config.supabaseUrl) {
+      return;
+    }
+    await inviteAuthUser({
+      supabaseUrl: this.config.supabaseUrl,
+      serviceRoleKey: this.config.supabaseServiceRoleKey,
+      email,
+      redirectTo: signupUrl,
+    });
+  }
+
+  private async deleteGoTrueUser(userId: string): Promise<void> {
+    if (this.config.authProvider !== 'supabase' || !this.config.supabaseServiceRoleKey || !this.config.supabaseUrl) {
+      return;
+    }
+    await deleteAuthUser({
+      supabaseUrl: this.config.supabaseUrl,
+      serviceRoleKey: this.config.supabaseServiceRoleKey,
+      userId,
+    });
   }
 
   async listRepositoryAccess(repositoryId: string): Promise<RepositoryAccess[]> {
