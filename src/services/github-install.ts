@@ -3,3 +3,7 @@ export function githubAppInstallUrl(slug: string, organizationId: string): strin
   url.searchParams.set('state', organizationId);
   return url.toString();
 }
+
+export function githubAppConfigureUrl(slug: string, externalInstallationId: string): string {
+  return `https://github.com/apps/${encodeURIComponent(slug)}/installations/${encodeURIComponent(externalInstallationId)}`;
+}

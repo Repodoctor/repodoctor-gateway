@@ -14,7 +14,7 @@ import {
 } from '@repodoctor/contracts';
 import { badRequest } from '@repodoctor/contracts';
 import { callService } from '../services/upstream';
-import { githubAppInstallUrl } from '../services/github-install';
+import { githubAppConfigureUrl, githubAppInstallUrl } from '../services/github-install';
 
 const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
   fastify.get(
@@ -45,6 +45,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       schema: {
         tags: ['scm'],
         params: z.object({ organizationId: z.string().uuid() }),
+        querystring: z.object({ externalInstallationId: z.string().min(1).optional() }),
         response: { 200: z.object({ url: z.string().url(), slug: z.string() }) },
       },
     },
@@ -52,20 +53,27 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       const principal = await fastify.authenticate(request);
       await fastify.organizationService.get(principal.userId, request.params.organizationId, 'MEMBER');
       const localSlug = fastify.config.githubAppSlug.trim();
-      if (localSlug) {
-        return { slug: localSlug, url: githubAppInstallUrl(localSlug, request.params.organizationId) };
-      }
-      const result = await callService<{ slug: string; configured: boolean }>({
-        baseUrl: fastify.config.scmServiceUrl,
-        path: '/internal/github/app',
-        config: fastify.config,
-        correlationId: request.correlationId,
-      });
-      const slug = result.json.slug?.trim();
-      if (!slug) {
+      const slug = localSlug || undefined;
+      const resolvedSlug =
+        slug ??
+        (
+          await callService<{ slug: string; configured: boolean }>({
+            baseUrl: fastify.config.scmServiceUrl,
+            path: '/internal/github/app',
+            config: fastify.config,
+            correlationId: request.correlationId,
+          })
+        ).json.slug?.trim();
+      if (!resolvedSlug) {
         throw badRequest('Set GITHUB_APP_SLUG on the gateway (public GitHub App slug, e.g. repodoctor-app)');
       }
-      return { slug, url: githubAppInstallUrl(slug, request.params.organizationId) };
+      const installationId = request.query.externalInstallationId;
+      return {
+        slug: resolvedSlug,
+        url: installationId
+          ? githubAppConfigureUrl(resolvedSlug, installationId)
+          : githubAppInstallUrl(resolvedSlug, request.params.organizationId),
+      };
     },
   );
 
