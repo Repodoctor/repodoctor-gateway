@@ -3,6 +3,8 @@ export declare const eventTopicSchema: z.ZodEnum<{
     "repository.connected": "repository.connected";
     "repository.created": "repository.created";
     "repository.updated": "repository.updated";
+    "repository.disconnected": "repository.disconnected";
+    "installation.synced": "installation.synced";
     "pull_request.opened": "pull_request.opened";
     "pull_request.updated": "pull_request.updated";
     "analysis.requested": "analysis.requested";
@@ -28,6 +30,8 @@ export declare const Topics: {
     readonly REPOSITORY_CONNECTED: "repository.connected";
     readonly REPOSITORY_CREATED: "repository.created";
     readonly REPOSITORY_UPDATED: "repository.updated";
+    readonly REPOSITORY_DISCONNECTED: "repository.disconnected";
+    readonly INSTALLATION_SYNCED: "installation.synced";
     readonly PULL_REQUEST_OPENED: "pull_request.opened";
     readonly PULL_REQUEST_UPDATED: "pull_request.updated";
     readonly ANALYSIS_REQUESTED: "analysis.requested";
@@ -54,6 +58,8 @@ export declare const domainEventSchema: z.ZodObject<{
         "repository.connected": "repository.connected";
         "repository.created": "repository.created";
         "repository.updated": "repository.updated";
+        "repository.disconnected": "repository.disconnected";
+        "installation.synced": "installation.synced";
         "pull_request.opened": "pull_request.opened";
         "pull_request.updated": "pull_request.updated";
         "analysis.requested": "analysis.requested";
@@ -89,6 +95,8 @@ export declare const inboundEventSchema: z.ZodObject<{
         "repository.connected": "repository.connected";
         "repository.created": "repository.created";
         "repository.updated": "repository.updated";
+        "repository.disconnected": "repository.disconnected";
+        "installation.synced": "installation.synced";
         "pull_request.opened": "pull_request.opened";
         "pull_request.updated": "pull_request.updated";
         "analysis.requested": "analysis.requested";
@@ -115,6 +123,8 @@ export declare const inboundEventSchema: z.ZodObject<{
             "repository.connected": "repository.connected";
             "repository.created": "repository.created";
             "repository.updated": "repository.updated";
+            "repository.disconnected": "repository.disconnected";
+            "installation.synced": "installation.synced";
             "pull_request.opened": "pull_request.opened";
             "pull_request.updated": "pull_request.updated";
             "analysis.requested": "analysis.requested";

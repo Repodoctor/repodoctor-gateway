@@ -40,6 +40,14 @@ const userAuthPlugin: FastifyPluginAsync = async (fastify) => {
     request.log = request.log.child({ userId: principal.userId });
     return principal;
   });
+
+  fastify.addHook('onReady', async () => {
+    try {
+      await authService.warmJwks?.();
+    } catch (error) {
+      fastify.log.warn({ err: error }, 'JWKS warmup failed; the first authenticated request will fetch keys');
+    }
+  });
 };
 
 export default fp(userAuthPlugin, { name: 'user-auth', dependencies: ['config'] });

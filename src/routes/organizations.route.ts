@@ -2,7 +2,10 @@ import type { FastifyPluginAsyncZod } from '@fastify/type-provider-zod';
 import { z } from 'zod';
 import {
   addMemberBodySchema,
+  addMemberResponseSchema,
   createOrganizationBodySchema,
+  organizationInvitePreviewSchema,
+  organizationInviteSchema,
   organizationMemberSchema,
   organizationSchema,
   orgRoleSchema,
@@ -114,20 +117,86 @@ const orgsRoute: FastifyPluginAsyncZod = async (fastify) => {
         operationId: 'addMember',
         params: z.object({ organizationId: z.string().uuid() }),
         body: addMemberBodySchema,
-        response: { 201: organizationMemberSchema },
+        response: { 201: addMemberResponseSchema },
       },
     },
     async (request, reply) => {
       const principal = await fastify.authenticate(request);
-      const target = await fastify.organizationService.getUserByEmail(request.body.email);
-      if (!target) throw badRequest('User must sign up before being added to an organization');
-      const member = await fastify.organizationService.addMember(
+      const result = await fastify.organizationService.addMember(
         principal.userId,
         request.params.organizationId,
         { email: request.body.email, role: request.body.role },
       );
       reply.code(201);
-      return member;
+      return result;
+    },
+  );
+
+  fastify.get(
+    '/api/v1/organizations/:organizationId/invites',
+    {
+      schema: {
+        tags: ['organizations'],
+        operationId: 'listInvites',
+        params: z.object({ organizationId: z.string().uuid() }),
+        response: { 200: z.object({ items: z.array(organizationInviteSchema) }) },
+      },
+    },
+    async (request) => {
+      const principal = await fastify.authenticate(request);
+      const items = await fastify.organizationService.listInvites(
+        principal.userId,
+        request.params.organizationId,
+      );
+      return { items };
+    },
+  );
+
+  fastify.delete(
+    '/api/v1/organizations/:organizationId/invites/:inviteId',
+    {
+      schema: {
+        tags: ['organizations'],
+        operationId: 'revokeInvite',
+        params: z.object({ organizationId: z.string().uuid(), inviteId: z.string().uuid() }),
+      },
+    },
+    async (request, reply) => {
+      await fastify.organizationService.revokeInvite(
+        (await fastify.authenticate(request)).userId,
+        request.params.organizationId,
+        request.params.inviteId,
+      );
+      return reply.code(204).send();
+    },
+  );
+
+  fastify.get(
+    '/api/v1/invites/:token',
+    {
+      schema: {
+        tags: ['organizations'],
+        operationId: 'previewInvite',
+        params: z.object({ token: z.string().min(8) }),
+        response: { 200: organizationInvitePreviewSchema },
+      },
+    },
+    async (request) => fastify.organizationService.getInvitePreview(request.params.token),
+  );
+
+  fastify.post(
+    '/api/v1/invites/:token/accept',
+    {
+      schema: {
+        tags: ['organizations'],
+        operationId: 'acceptInvite',
+        params: z.object({ token: z.string().min(8) }),
+        response: { 200: organizationMemberSchema },
+      },
+    },
+    async (request) => {
+      const principal = await fastify.authenticate(request);
+      return fastify.organizationService.acceptInvite(principal.userId, request.params.token);
     },
   );
 

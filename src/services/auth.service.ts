@@ -21,6 +21,7 @@ export interface AuthService {
   getUser(userId: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   updateProfile(userId: string, displayName: string, accessToken?: string): Promise<User>;
+  warmJwks?(): Promise<void>;
 }
 
 function expiryIso(msFromNow: number): string {
@@ -174,7 +175,7 @@ export class LocalAuthService implements AuthService {
 
 /** Production path: verify Supabase user JWTs with JWKS. Sign-in lives on the dashboard. */
 export class SupabaseAuthService implements AuthService {
-  private readonly jwks: JWTVerifyGetKey;
+  private readonly jwks: JWTVerifyGetKey & { reload?: () => Promise<void> };
 
   constructor(
     private readonly identity: OrganizationService,
@@ -183,7 +184,16 @@ export class SupabaseAuthService implements AuthService {
     if (!config.supabaseUrl || !config.supabaseJwksUrl) {
       throw new Error('Supabase auth requires SUPABASE_URL and SUPABASE_JWKS_URL');
     }
-    this.jwks = createRemoteJWKSet(new URL(config.supabaseJwksUrl));
+    this.jwks = createRemoteJWKSet(new URL(config.supabaseJwksUrl), {
+      cacheMaxAge: 10 * 60 * 1000,
+      cooldownDuration: 30_000,
+    });
+  }
+
+  async warmJwks(): Promise<void> {
+    if (typeof this.jwks.reload === 'function') {
+      await this.jwks.reload();
+    }
   }
 
   private clientAuthUnsupported(): never {

@@ -22,6 +22,18 @@ export interface RepositoryUpdatedPayload {
     trigger: AnalysisTrigger;
     [key: string]: unknown;
 }
+export interface RepositoryDisconnectedPayload {
+    scmProvider: ScmProvider;
+    scmRepositoryId: string;
+    installationId?: string;
+    [key: string]: unknown;
+}
+export interface InstallationSyncedPayload {
+    installationId: string;
+    scmProvider: ScmProvider;
+    scmRepositoryIds: string[];
+    [key: string]: unknown;
+}
 export interface PullRequestOpenedPayload {
     scmProvider: ScmProvider;
     scmRepositoryId: string;

@@ -44,6 +44,7 @@ export interface AppConfig {
   remediationServiceUrl: string;
   analyticsServiceUrl: string;
   githubAppSlug: string;
+  dashboardPublicUrl: string;
 }
 
 function optionalEnv(name: string, fallback = ''): string {
@@ -105,6 +106,7 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     remediationServiceUrl: optionalEnv('REMEDIATION_SERVICE_URL', 'http://127.0.0.1:43124'),
     analyticsServiceUrl: optionalEnv('ANALYTICS_SERVICE_URL', 'http://127.0.0.1:43125'),
     githubAppSlug: optionalEnv('GITHUB_APP_SLUG', 'repodoctor-app'),
+    dashboardPublicUrl: optionalEnv('DASHBOARD_PUBLIC_URL', 'https://repodoctor.dev'),
     ...overrides,
   };
   if (config.nodeEnv === 'production' && !config.internalServiceToken) {

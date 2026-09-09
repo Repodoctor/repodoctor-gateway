@@ -156,6 +156,7 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
       payload: { email: 'member@example.com', role: 'MEMBER' },
     });
     expect(invited.statusCode).toBe(201);
+    expect(invited.json().status).toBe('added');
 
     const forbidden = await app.inject({
       method: 'POST',
@@ -172,6 +173,39 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
     });
     expect(catalog.statusCode).toBe(200);
     expect(catalog.json().items).toEqual([]);
+  });
+
+  it('creates a pending invite for an email without an account', async () => {
+    const owner = await signup('inviter@example.com', 'Inviter');
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/organizations',
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+      payload: { name: 'Invite Co', slug: 'invite-co' },
+    });
+    const orgId = created.json().id;
+    const invited = await app.inject({
+      method: 'POST',
+      url: `/api/v1/organizations/${orgId}/members`,
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+      payload: { email: 'future@example.com', role: 'MEMBER' },
+    });
+    expect(invited.statusCode).toBe(201);
+    expect(invited.json().status).toBe('invited');
+    expect(invited.json().invite.signupUrl).toContain('/signup?invite=');
+    const preview = await app.inject({
+      method: 'GET',
+      url: `/api/v1/invites/${new URL(invited.json().invite.signupUrl).searchParams.get('invite')}`,
+    });
+    expect(preview.statusCode).toBe(200);
+    expect(preview.json().email).toBe('future@example.com');
+    const guest = await signup('future@example.com', 'Future');
+    const orgs = await app.inject({
+      method: 'GET',
+      url: '/api/v1/organizations',
+      headers: { authorization: `Bearer ${guest.accessToken}` },
+    });
+    expect(orgs.json().items).toHaveLength(1);
   });
 });
 

@@ -1,6 +1,9 @@
 import type {
+  AddMemberResponse,
   OrgRole,
   Organization,
+  OrganizationInvite,
+  OrganizationInvitePreview,
   OrganizationMember,
   User,
 } from '@repodoctor/contracts';
@@ -86,7 +89,7 @@ export class OrganizationService {
   }
 
   async delete(userId: string, organizationId: string): Promise<void> {
-    await this.get(userId, organizationId, 'OWNER');
+    await this.get(userId, organizationId, 'ADMIN');
     await this.purgeUpstream(this.config.scmServiceUrl, `/internal/organizations/${organizationId}`);
     await this.purgeUpstream(this.config.findingsServiceUrl, `/internal/organizations/${organizationId}`);
     await this.repo(`/internal/v1/organizations/${organizationId}?userId=${encodeURIComponent(userId)}`, {
@@ -119,15 +122,63 @@ export class OrganizationService {
     actorUserId: string,
     organizationId: string,
     target: { email: string; role: OrgRole },
-  ): Promise<OrganizationMember> {
-    const { json } = await this.repo<OrganizationMember>(
+  ): Promise<AddMemberResponse> {
+    const { json } = await this.repo<AddMemberResponse>(
       `/internal/v1/organizations/${organizationId}/members`,
       {
         method: 'POST',
         body: { userId: actorUserId, email: target.email, role: target.role },
       },
     );
+    if (json.status === 'invited') {
+      return {
+        status: 'invited',
+        invite: this.withSignupUrl(json.invite),
+      };
+    }
     return json;
+  }
+
+  async listInvites(userId: string, organizationId: string): Promise<OrganizationInvite[]> {
+    const { json } = await this.repo<{ items: OrganizationInvite[] }>(
+      `/internal/v1/organizations/${organizationId}/invites?userId=${encodeURIComponent(userId)}`,
+    );
+    return (json.items ?? []).map((invite) => this.withSignupUrl(invite));
+  }
+
+  async revokeInvite(userId: string, organizationId: string, inviteId: string): Promise<void> {
+    await this.repo(
+      `/internal/v1/organizations/${organizationId}/invites/${inviteId}?userId=${encodeURIComponent(userId)}`,
+      { method: 'DELETE' },
+    );
+  }
+
+  async getInvitePreview(token: string): Promise<OrganizationInvitePreview> {
+    const { json } = await this.repo<OrganizationInvitePreview>(
+      `/internal/v1/invites/${encodeURIComponent(token)}`,
+    );
+    return json;
+  }
+
+  async acceptInvite(userId: string, token: string): Promise<OrganizationMember> {
+    const { json } = await this.repo<OrganizationMember>(`/internal/v1/invites/${encodeURIComponent(token)}/accept`, {
+      method: 'POST',
+      body: { userId },
+    });
+    return json;
+  }
+
+  private withSignupUrl(invite: OrganizationInvite): OrganizationInvite {
+    const origin = dashboardOrigin(this.config);
+    return {
+      id: invite.id,
+      organizationId: invite.organizationId,
+      email: invite.email,
+      role: invite.role,
+      signupUrl: `${origin}/signup?invite=${encodeURIComponent(invite.token ?? '')}`,
+      expiresAt: invite.expiresAt,
+      createdAt: invite.createdAt,
+    };
   }
 
   async updateMember(
@@ -152,4 +203,11 @@ export class OrganizationService {
       { method: 'DELETE' },
     );
   }
+}
+
+function dashboardOrigin(config: AppConfig): string {
+  const configured = config.dashboardPublicUrl.trim().replace(/\/+$/, '');
+  if (configured) return configured;
+  const httpsOrigin = config.corsOrigins.find((origin) => origin.startsWith('https://'));
+  return httpsOrigin ?? 'https://repodoctor.dev';
 }
