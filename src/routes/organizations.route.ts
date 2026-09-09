@@ -55,7 +55,7 @@ const orgsRoute: FastifyPluginAsyncZod = async (fastify) => {
         tags: ['organizations'],
         operationId: 'getOrganization',
         params: z.object({ organizationId: z.string().uuid() }),
-        response: { 200: organizationSchema },
+        response: { 200: organizationWithRole },
       },
     },
     async (request) => {

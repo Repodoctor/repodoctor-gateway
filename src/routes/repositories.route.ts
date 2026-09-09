@@ -111,7 +111,22 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     async (request) => {
       const principal = await fastify.authenticate(request);
       if (!request.query.organizationId) {
-        return { items: [], page: request.query.page, pageSize: request.query.pageSize, total: 0 };
+        const orgs = await fastify.organizationService.listForUser(principal.userId);
+        if (orgs.length === 0) {
+          return { items: [], page: request.query.page, pageSize: request.query.pageSize, total: 0 };
+        }
+        const params = new URLSearchParams({
+          organizationIds: orgs.map((org) => org.id).join(','),
+          page: String(request.query.page),
+          pageSize: String(request.query.pageSize),
+        });
+        const result = await callService<{ items: Repository[]; page: number; pageSize: number; total: number }>({
+          baseUrl: fastify.config.repositoryServiceUrl,
+          path: `/api/v1/repositories?${params.toString()}`,
+          config: fastify.config,
+          correlationId: request.correlationId,
+        });
+        return result.json;
       }
       await fastify.organizationService.get(principal.userId, request.query.organizationId, 'VIEWER');
       const result = await callService<{ items: Repository[]; page: number; pageSize: number; total: number }>({

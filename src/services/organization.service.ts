@@ -9,6 +9,8 @@ import type { AppConfig } from '../config/env';
 import { callService } from './upstream';
 
 export class OrganizationService {
+  private readonly ensuredUsers = new Map<string, { user: User; at: number }>();
+
   constructor(private readonly config: AppConfig) {}
 
   private repo<T>(path: string, init: { method?: string; body?: unknown } = {}) {
@@ -22,10 +24,16 @@ export class OrganizationService {
   }
 
   async ensureUser(input: { id: string; email: string; displayName: string }): Promise<User> {
+    const key = `${input.id}:${input.email.toLowerCase()}`;
+    const cached = this.ensuredUsers.get(key);
+    if (cached && Date.now() - cached.at < 5 * 60_000) {
+      return cached.user;
+    }
     const { json } = await this.repo<User>('/internal/v1/users/ensure', {
       method: 'POST',
       body: input,
     });
+    this.ensuredUsers.set(key, { user: json, at: Date.now() });
     return json;
   }
 
@@ -56,9 +64,13 @@ export class OrganizationService {
     return json.items ?? [];
   }
 
-  async get(userId: string, organizationId: string, required: OrgRole = 'VIEWER'): Promise<Organization> {
+  async get(
+    userId: string,
+    organizationId: string,
+    required: OrgRole = 'VIEWER',
+  ): Promise<Organization & { role: OrgRole }> {
     const query = new URLSearchParams({ userId, required });
-    const { json } = await this.repo<Organization>(
+    const { json } = await this.repo<Organization & { role: OrgRole }>(
       `/internal/v1/organizations/${organizationId}?${query.toString()}`,
     );
     return json;
@@ -74,9 +86,26 @@ export class OrganizationService {
   }
 
   async delete(userId: string, organizationId: string): Promise<void> {
+    await this.get(userId, organizationId, 'OWNER');
+    await this.purgeUpstream(this.config.scmServiceUrl, `/internal/organizations/${organizationId}`);
+    await this.purgeUpstream(this.config.findingsServiceUrl, `/internal/organizations/${organizationId}`);
     await this.repo(`/internal/v1/organizations/${organizationId}?userId=${encodeURIComponent(userId)}`, {
       method: 'DELETE',
     });
+  }
+
+  private async purgeUpstream(baseUrl: string, path: string): Promise<void> {
+    if (!baseUrl.trim()) return;
+    try {
+      await callService({
+        baseUrl,
+        path,
+        method: 'DELETE',
+        config: this.config,
+      });
+    } catch {
+      // Tenant rows may already be gone via Postgres CASCADE.
+    }
   }
 
   async listMembers(userId: string, organizationId: string): Promise<OrganizationMember[]> {
