@@ -31,7 +31,7 @@ describe('github app install proxy', () => {
       const url = new URL(request.url ?? '/', 'http://127.0.0.1');
       void (async () => {
         if (request.method === 'GET' && url.pathname === '/internal/github/app') {
-          sendJson(response, 200, { slug: 'repodoctor-app', configured: true });
+          sendJson(response, 404, { message: 'Route GET:/internal/github/app not found' });
           return;
         }
         if (request.method === 'GET' && url.pathname === '/internal/v1/users') {
@@ -98,6 +98,7 @@ describe('github app install proxy', () => {
         internalServiceToken: serviceToken,
         repositoryServiceUrl: upstreamUrl,
         scmServiceUrl: upstreamUrl,
+        githubAppSlug: 'repodoctor-app',
       }),
     );
     await app.ready();
@@ -110,7 +111,7 @@ describe('github app install proxy', () => {
     );
   });
 
-  it('returns the GitHub App install URL for an organization member', async () => {
+  it('returns the GitHub App install URL without calling SCM', async () => {
     const signup = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/signup',

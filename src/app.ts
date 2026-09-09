@@ -22,6 +22,7 @@ import v1Routes from './routes';
 /** Builds (but does not start) a fully configured Fastify instance. */
 export function buildApp(config: AppConfig): FastifyInstance {
   const fastify = Fastify({
+    routerOptions: { ignoreTrailingSlash: true },
     logger:
       config.nodeEnv === 'test'
         ? false

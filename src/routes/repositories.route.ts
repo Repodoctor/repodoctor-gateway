@@ -12,6 +12,7 @@ import {
 } from '@repodoctor/contracts';
 import { badRequest } from '@repodoctor/contracts';
 import { callService } from '../services/upstream';
+import { githubAppInstallUrl } from '../services/github-install';
 
 const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
   fastify.get(
@@ -48,6 +49,10 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     async (request) => {
       const principal = await fastify.authenticate(request);
       await fastify.organizationService.get(principal.userId, request.params.organizationId, 'MEMBER');
+      const localSlug = fastify.config.githubAppSlug.trim();
+      if (localSlug) {
+        return { slug: localSlug, url: githubAppInstallUrl(localSlug, request.params.organizationId) };
+      }
       const result = await callService<{ slug: string; configured: boolean }>({
         baseUrl: fastify.config.scmServiceUrl,
         path: '/internal/github/app',
@@ -56,11 +61,9 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       });
       const slug = result.json.slug?.trim();
       if (!slug) {
-        throw badRequest('GitHub App slug is not configured on the SCM service');
+        throw badRequest('Set GITHUB_APP_SLUG on the gateway (public GitHub App slug, e.g. repodoctor-app)');
       }
-      const url = new URL(`https://github.com/apps/${encodeURIComponent(slug)}/installations/new`);
-      url.searchParams.set('state', request.params.organizationId);
-      return { url: url.toString(), slug };
+      return { slug, url: githubAppInstallUrl(slug, request.params.organizationId) };
     },
   );
 
@@ -127,19 +130,25 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       schema: {
         tags: ['repositories'],
         params: z.object({ repositoryId: z.string().uuid() }),
-        querystring: z.object({ organizationId: z.string().uuid() }),
+        querystring: z.object({ organizationId: z.string().uuid().optional() }),
         response: { 200: repositorySchema },
       },
     },
     async (request) => {
       const principal = await fastify.authenticate(request);
-      await fastify.organizationService.get(principal.userId, request.query.organizationId, 'VIEWER');
+      const qs = request.query.organizationId
+        ? `?organizationId=${request.query.organizationId}`
+        : '';
       const result = await callService<Repository>({
         baseUrl: fastify.config.repositoryServiceUrl,
-        path: `/api/v1/repositories/${request.params.repositoryId}?organizationId=${request.query.organizationId}`,
+        path: `/api/v1/repositories/${request.params.repositoryId}${qs}`,
         config: fastify.config,
         correlationId: request.correlationId,
       });
+      await fastify.organizationService.get(principal.userId, result.json.organizationId, 'VIEWER');
+      if (request.query.organizationId && request.query.organizationId !== result.json.organizationId) {
+        throw badRequest('Repository does not belong to the requested organization');
+      }
       return result.json;
     },
   );

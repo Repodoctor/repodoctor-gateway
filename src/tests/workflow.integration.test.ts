@@ -77,9 +77,9 @@ describe.skipIf(!scmAvailable || !repositoryAvailable)('github webhook to analys
   });
 
   afterAll(async () => {
-    await gateway.close();
-    await scm.close();
-    await repository.close();
+    await gateway?.close();
+    await scm?.close();
+    await repository?.close();
   });
 
   it('connects GitHub, ingests the repository, and requests analysis from a push webhook', async () => {
@@ -101,6 +101,15 @@ describe.skipIf(!scmAvailable || !repositoryAvailable)('github webhook to analys
     expect(org.statusCode).toBe(201);
     const organizationId = org.json().id as string;
 
+    const install = await gateway.inject({
+      method: 'GET',
+      url: `/api/v1/organizations/${organizationId}/scm/github/install`,
+      headers: auth,
+    });
+    expect(install.statusCode).toBe(200);
+    expect(install.json().slug).toBe('repodoctor-app');
+    expect(String(install.json().url)).toContain(`/apps/repodoctor-app/installations/new`);
+
     const connected = await gateway.inject({
       method: 'POST',
       url: `/api/v1/organizations/${organizationId}/scm/github`,
@@ -117,6 +126,14 @@ describe.skipIf(!scmAvailable || !repositoryAvailable)('github webhook to analys
     expect(repos.statusCode).toBe(200);
     expect(repos.json().items).toHaveLength(1);
     const repositoryId = repos.json().items[0].id as string;
+
+    const byId = await gateway.inject({
+      method: 'GET',
+      url: `/api/v1/repositories/${repositoryId}`,
+      headers: auth,
+    });
+    expect(byId.statusCode).toBe(200);
+    expect(byId.json().fullName).toBe('acme/api');
 
     const analysesAfterConnect = await gateway.inject({
       method: 'GET',
