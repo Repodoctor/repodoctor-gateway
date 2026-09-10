@@ -48,7 +48,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
         tags: ['scm'],
         params: z.object({ organizationId: z.string().uuid(), provider: scmProviderSchema }),
         querystring: z.object({ externalInstallationId: z.string().min(1).optional() }),
-        response: { 200: z.object({ url: z.string().url(), slug: z.string(), configured: z.boolean() }) },
+        response: { 200: z.object({ url: z.string().url(), slug: z.string(), configured: z.boolean(), label: z.string() }) },
       },
     },
     async (request) => {
@@ -58,7 +58,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       if (request.query.externalInstallationId) {
         params.set('externalInstallationId', request.query.externalInstallationId);
       }
-      const result = await callService<{ url: string; slug: string; configured: boolean }>({
+      const result = await callService<{ url: string; slug: string; configured: boolean; label: string }>({
         baseUrl: fastify.config.scmServiceUrl,
         path: `/internal/providers/${request.params.provider}/app?${params.toString()}`,
         config: fastify.config,
@@ -79,8 +79,9 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
         tags: ['scm'],
         params: z.object({ organizationId: z.string().uuid(), provider: scmProviderSchema }),
         body: z.object({
-          externalInstallationId: z.string().min(1),
+          externalInstallationId: z.string().min(1).optional(),
           accountLogin: z.string().min(1).optional(),
+          callback: z.record(z.string(), z.string().nullable()).optional(),
         }),
       },
     },
@@ -97,6 +98,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
           organizationId: request.params.organizationId,
           externalInstallationId: request.body.externalInstallationId,
           accountLogin: request.body.accountLogin,
+          callback: request.body.callback,
         },
       });
       reply.code(201);
@@ -104,21 +106,21 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
-  // Disconnect one SCM provider: uninstall the remote app and prune imported repositories.
+  // Disconnect one SCM installation (one GitHub org/user App install).
   fastify.delete(
-    '/api/v1/organizations/:organizationId/scm/:provider',
+    '/api/v1/organizations/:organizationId/scm/installations/:installationId',
     {
       schema: {
         tags: ['scm'],
-        params: z.object({ organizationId: z.string().uuid(), provider: scmProviderSchema }),
+        params: z.object({ organizationId: z.string().uuid(), installationId: z.string().uuid() }),
       },
     },
     async (request, reply) => {
       const principal = await fastify.authenticate(request);
-      await fastify.organizationService.disconnectScm(
+      await fastify.organizationService.disconnectInstallation(
         principal.userId,
         request.params.organizationId,
-        request.params.provider,
+        request.params.installationId,
       );
       return reply.code(204).send();
     },

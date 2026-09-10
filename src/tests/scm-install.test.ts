@@ -36,6 +36,7 @@ describe('github app install proxy', () => {
           sendJson(response, 200, {
             slug: 'repodoctor-app',
             configured: true,
+            label: 'GitHub',
             url: external
               ? `https://github.com/apps/repodoctor-app/installations/${encodeURIComponent(external)}`
               : `https://github.com/apps/repodoctor-app/installations/new?state=${organizationId}`,
@@ -93,6 +94,11 @@ describe('github app install proxy', () => {
           sendJson(response, 200, org);
           return;
         }
+        if (request.method === 'DELETE' && url.pathname.startsWith('/internal/installations/')) {
+          response.writeHead(204);
+          response.end();
+          return;
+        }
         if (request.method === 'DELETE' && url.pathname.startsWith('/internal/organizations/')) {
           response.writeHead(204);
           response.end();
@@ -115,7 +121,6 @@ describe('github app install proxy', () => {
         internalServiceToken: serviceToken,
         repositoryServiceUrl: upstreamUrl,
         scmServiceUrl: upstreamUrl,
-        githubAppSlug: 'repodoctor-app',
       }),
     );
     await app.ready();
@@ -156,6 +161,7 @@ describe('github app install proxy', () => {
     });
     expect(response.statusCode).toBe(200);
     expect(response.json().slug).toBe('repodoctor-app');
+    expect(response.json().label).toBe('GitHub');
     expect(response.json().url).toBe(
       `https://github.com/apps/repodoctor-app/installations/new?state=${organizationId}`,
     );
@@ -177,7 +183,7 @@ describe('github app install proxy', () => {
     const organizationId = org.json().id as string;
     const disconnected = await app.inject({
       method: 'DELETE',
-      url: `/api/v1/organizations/${organizationId}/scm/github`,
+      url: `/api/v1/organizations/${organizationId}/scm/installations/11111111-1111-4111-8111-111111111111`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(disconnected.statusCode).toBe(204);
@@ -188,5 +194,27 @@ describe('github app install proxy', () => {
     });
     expect(stillThere.statusCode).toBe(200);
     expect(stillThere.json().id).toBe(organizationId);
+  });
+
+  it('rejects the retired GitHub-only disconnect alias', async () => {
+    const signup = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/signup',
+      payload: { email: 'scm-alias@example.com', password: 'correct-horse', displayName: 'Owner' },
+    });
+    const token = signup.json().accessToken as string;
+    const org = await app.inject({
+      method: 'POST',
+      url: '/api/v1/organizations',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { name: 'Alias Co', slug: 'alias-co' },
+    });
+    const organizationId = org.json().id as string;
+    const retired = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/organizations/${organizationId}/scm/github`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(retired.statusCode).toBe(404);
   });
 });

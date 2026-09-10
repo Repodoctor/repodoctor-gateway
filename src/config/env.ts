@@ -44,7 +44,6 @@ export interface AppConfig {
   aiServiceUrl: string;
   remediationServiceUrl: string;
   analyticsServiceUrl: string;
-  githubAppSlug: string;
   dashboardPublicUrl: string;
   upstreamTimeoutMs: number;
 }
@@ -108,7 +107,6 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     aiServiceUrl: optionalEnv('AI_SERVICE_URL', 'http://127.0.0.1:43123'),
     remediationServiceUrl: optionalEnv('REMEDIATION_SERVICE_URL', 'http://127.0.0.1:43124'),
     analyticsServiceUrl: optionalEnv('ANALYTICS_SERVICE_URL', 'http://127.0.0.1:43125'),
-    githubAppSlug: optionalEnv('GITHUB_APP_SLUG', 'repodoctor-app'),
     dashboardPublicUrl: optionalEnv('DASHBOARD_PUBLIC_URL', 'https://repodoctor.dev'),
     upstreamTimeoutMs: Number(optionalEnv('UPSTREAM_TIMEOUT_MS', '20000')),
     ...overrides,

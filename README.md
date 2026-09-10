@@ -16,7 +16,7 @@ Independently deployable gateway service for RepoDoctor.
 - Enforce tenant isolation
 - CORS, rate limiting, request IDs, tracing, error envelopes
 - Aggregate public `/api/v1` routes (auth, organizations, SCM connect, repositories, analysis, findings)
-- Forward GitHub webhooks with the original raw body to `repodoctor-scm`
+- Forward SCM webhooks with the original raw body to `repodoctor-scm`
 
 ## API
 
