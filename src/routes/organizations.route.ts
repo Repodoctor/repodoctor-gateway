@@ -17,6 +17,7 @@ import {
 const organizationWithRole = organizationSchema.extend({ role: orgRoleSchema });
 
 const orgsRoute: FastifyPluginAsyncZod = async (fastify) => {
+  // Create an organization; the caller becomes OWNER.
   fastify.post(
     '/api/v1/organizations',
     {
@@ -35,6 +36,7 @@ const orgsRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // List organizations the authenticated user belongs to.
   fastify.get(
     '/api/v1/organizations',
     {
@@ -51,6 +53,7 @@ const orgsRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Get one organization (membership required).
   fastify.get(
     '/api/v1/organizations/:organizationId',
     {
@@ -67,6 +70,7 @@ const orgsRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Rename an organization (OWNER/ADMIN).
   fastify.patch(
     '/api/v1/organizations/:organizationId',
     {
@@ -89,6 +93,7 @@ const orgsRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // List members of an organization.
   fastify.get(
     '/api/v1/organizations/:organizationId/members',
     {
@@ -109,6 +114,7 @@ const orgsRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Invite or add a member by email; sends a Supabase invite when the user is new.
   fastify.post(
     '/api/v1/organizations/:organizationId/members',
     {
@@ -132,6 +138,7 @@ const orgsRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // List pending organization invites.
   fastify.get(
     '/api/v1/organizations/:organizationId/invites',
     {
@@ -152,6 +159,7 @@ const orgsRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Revoke a pending invite.
   fastify.delete(
     '/api/v1/organizations/:organizationId/invites/:inviteId',
     {
@@ -171,6 +179,7 @@ const orgsRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Public preview of an invite (email, org name, role) before accept.
   fastify.get(
     '/api/v1/invites/:token',
     {
@@ -184,6 +193,7 @@ const orgsRoute: FastifyPluginAsyncZod = async (fastify) => {
     async (request) => fastify.organizationService.getInvitePreview(request.params.token),
   );
 
+  // Accept an invite for the authenticated user.
   fastify.post(
     '/api/v1/invites/:token/accept',
     {
@@ -200,6 +210,7 @@ const orgsRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Change a member's organization role (not OWNER).
   fastify.patch(
     '/api/v1/organizations/:organizationId/members/:userId',
     {
@@ -220,6 +231,7 @@ const orgsRoute: FastifyPluginAsyncZod = async (fastify) => {
       ),
   );
 
+  // Remove a member from the organization.
   fastify.delete(
     '/api/v1/organizations/:organizationId/members/:userId',
     {
@@ -239,6 +251,7 @@ const orgsRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Delete the organization, catalog, findings, and GitHub App installation.
   fastify.delete(
     '/api/v1/organizations/:organizationId',
     {

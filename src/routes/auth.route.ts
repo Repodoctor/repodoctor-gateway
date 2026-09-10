@@ -9,6 +9,7 @@ import {
 } from '@repodoctor/contracts';
 
 const authRoute: FastifyPluginAsyncZod = async (fastify) => {
+  // Create a user account and return an access/refresh session.
   fastify.post(
     '/api/v1/auth/signup',
     {
@@ -27,6 +28,7 @@ const authRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Authenticate with email/password and return a session.
   fastify.post(
     '/api/v1/auth/login',
     {
@@ -44,6 +46,7 @@ const authRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Exchange a refresh token for a new session.
   fastify.post(
     '/api/v1/auth/refresh',
     {
@@ -57,6 +60,7 @@ const authRoute: FastifyPluginAsyncZod = async (fastify) => {
     async (request) => fastify.authService.refresh(request.body.refreshToken),
   );
 
+  // Invalidate the current refresh token / Supabase session.
   fastify.post(
     '/api/v1/auth/logout',
     {
@@ -72,6 +76,7 @@ const authRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Start a password-reset email; always returns 202 so callers cannot enumerate users.
   fastify.post(
     '/api/v1/auth/forgot-password',
     {

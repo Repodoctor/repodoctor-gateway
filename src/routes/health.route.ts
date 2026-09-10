@@ -7,6 +7,7 @@ const healthRoute: FastifyPluginAsyncZod = async (fastify) => {
     service: z.string(),
   });
 
+  // Liveness probe for orchestrators and load balancers.
   fastify.get(
     '/health',
     {
@@ -19,6 +20,7 @@ const healthRoute: FastifyPluginAsyncZod = async (fastify) => {
     async () => ({ status: 'ok' as const, service: fastify.config.serviceName }),
   );
 
+  // Readiness probe; currently the same as liveness (no dependency check).
   fastify.get(
     '/ready',
     {

@@ -17,6 +17,7 @@ import { callService } from '../services/upstream';
 import { githubAppConfigureUrl, githubAppInstallUrl } from '../services/github-install';
 
 const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
+  // List SCM installations for an organization.
   fastify.get(
     '/api/v1/organizations/:organizationId/scm',
     {
@@ -39,6 +40,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Build the GitHub App install or configure URL for a popup.
   fastify.get(
     '/api/v1/organizations/:organizationId/scm/github/install',
     {
@@ -77,6 +79,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Finalize a GitHub App installation and ingest selected repositories.
   fastify.post(
     '/api/v1/organizations/:organizationId/scm/github',
     {
@@ -109,6 +112,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Disconnect GitHub: uninstall the App and prune imported repositories.
   fastify.delete(
     '/api/v1/organizations/:organizationId/scm/github',
     {
@@ -124,6 +128,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // List repositories the caller can view (one org or all memberships).
   fastify.get(
     '/api/v1/repositories',
     {
@@ -166,6 +171,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Get one repository plus the caller's effective permission.
   fastify.get(
     '/api/v1/repositories/:repositoryId',
     {
@@ -200,6 +206,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // List per-user repository access grants (ADMIN).
   fastify.get(
     '/api/v1/repositories/:repositoryId/access',
     {
@@ -226,6 +233,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Set a member's repository permission override.
   fastify.put(
     '/api/v1/repositories/:repositoryId/access/:userId',
     {
@@ -257,6 +265,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Clear a member's repository permission override.
   fastify.delete(
     '/api/v1/repositories/:repositoryId/access/:userId',
     {
@@ -282,6 +291,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Queue an analysis run for a repository.
   fastify.post(
     '/api/v1/repositories/:repositoryId/analysis',
     {
@@ -312,6 +322,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // List analysis runs for a repository.
   fastify.get(
     '/api/v1/analysis',
     {

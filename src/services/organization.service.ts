@@ -38,11 +38,18 @@ export class OrganizationService {
     });
   }
 
-  async ensureUser(input: { id: string; email: string; displayName: string }): Promise<User> {
+  async ensureUser(input: {
+    id: string;
+    email: string;
+    displayName: string;
+    syncDisplayName?: boolean;
+  }): Promise<User> {
     const key = `${input.id}:${input.email.toLowerCase()}`;
-    const cached = this.ensuredUsers.get(key);
-    if (cached && Date.now() - cached.at < 5 * 60_000) {
-      return cached.user;
+    if (!input.syncDisplayName) {
+      const cached = this.ensuredUsers.get(key);
+      if (cached && Date.now() - cached.at < 5 * 60_000) {
+        return cached.user;
+      }
     }
     const { json } = await this.repo<User>('/internal/v1/users/ensure', {
       method: 'POST',

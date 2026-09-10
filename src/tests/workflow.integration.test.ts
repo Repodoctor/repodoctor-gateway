@@ -44,7 +44,7 @@ describe.skipIf(!scmAvailable || !repositoryAvailable)('github webhook to analys
       pathToFileURL(path.join(workspaceRoot, 'repodoctor-scm/src/app.ts')).href
     );
     const { defaultFakeProvider } = await import(
-      pathToFileURL(path.join(workspaceRoot, 'repodoctor-scm/src/services/fake-provider.ts')).href
+      pathToFileURL(path.join(workspaceRoot, 'repodoctor-scm/src/tests/helpers/fake-provider.ts')).href
     );
 
     repository = buildRepository(loadRepositoryConfig({ nodeEnv: 'test', internalServiceToken: serviceToken }));

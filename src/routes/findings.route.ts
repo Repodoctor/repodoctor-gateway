@@ -4,6 +4,7 @@ import { findingSchema, paginatedResponseSchema, paginationQuerySchema, type Fin
 import { callService } from '../services/upstream';
 
 const findingsGatewayRoute: FastifyPluginAsyncZod = async (fastify) => {
+  // List findings the caller can see (paginated in the gateway after org-scoped fetches).
   fastify.get(
     '/api/v1/findings',
     {

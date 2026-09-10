@@ -169,6 +169,7 @@ export class LocalAuthService implements AuthService {
       id: userId,
       email: existing.email,
       displayName,
+      syncDisplayName: true,
     });
   }
 }
@@ -264,6 +265,7 @@ export class SupabaseAuthService implements AuthService {
       id: userId,
       email: existing.email,
       displayName,
+      syncDisplayName: true,
     });
   }
 }

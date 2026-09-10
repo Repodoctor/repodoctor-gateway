@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { updateProfileBodySchema, userSchema } from '@repodoctor/contracts';
 
 const usersRoute: FastifyPluginAsyncZod = async (fastify) => {
+  // Return the authenticated user's profile from identity (JWT is not the source of display name).
   fastify.get(
     '/api/v1/users/me',
     {
@@ -14,14 +15,18 @@ const usersRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (request) => {
       const principal = await fastify.authenticate(request);
-      return fastify.organizationService.ensureUser({
-        id: principal.userId,
-        email: principal.email,
-        displayName: principal.displayName,
-      });
+      return (
+        (await fastify.organizationService.getUser(principal.userId)) ??
+        fastify.organizationService.ensureUser({
+          id: principal.userId,
+          email: principal.email,
+          displayName: principal.displayName,
+        })
+      );
     },
   );
 
+  // Update the authenticated user's display name.
   fastify.patch(
     '/api/v1/users/me',
     {
@@ -39,6 +44,7 @@ const usersRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // Delete the account, owned organizations, and the GoTrue user.
   fastify.delete(
     '/api/v1/users/me',
     {

@@ -4,6 +4,7 @@ import { badRequest } from '@repodoctor/contracts';
 import { callService } from '../services/upstream';
 
 const webhookRoute: FastifyPluginAsyncZod = async (fastify) => {
+  // Public GitHub webhook ingress; forwards the raw body to SCM for HMAC verification.
   fastify.post(
     '/api/v1/webhooks/github',
     {

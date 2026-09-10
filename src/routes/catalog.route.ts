@@ -10,6 +10,7 @@ const catalogRoute: FastifyPluginAsyncZod = async (fastify) => {
     return { items: [], phase: '1-4-foundation' };
   };
 
+  // Placeholder catalog endpoints until those workers exist.
   const paths = [
     '/api/v1/reviews',
     '/api/v1/security',
