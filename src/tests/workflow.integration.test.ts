@@ -108,7 +108,7 @@ describe.skipIf(!scmAvailable || !repositoryAvailable)('github webhook to analys
     });
     expect(install.statusCode).toBe(200);
     expect(install.json().slug).toBe('repodoctor-app');
-    expect(String(install.json().url)).toContain(`/apps/repodoctor-app/installations/new`);
+    expect(String(install.json().url)).toContain(`/apps/repodoctor-app/installations/select_target`);
 
     const connected = await gateway.inject({
       method: 'POST',

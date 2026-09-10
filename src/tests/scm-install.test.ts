@@ -39,7 +39,7 @@ describe('github app install proxy', () => {
             label: 'GitHub',
             url: external
               ? `https://github.com/apps/repodoctor-app/installations/${encodeURIComponent(external)}`
-              : `https://github.com/apps/repodoctor-app/installations/new?state=${organizationId}`,
+              : `https://github.com/apps/repodoctor-app/installations/select_target?state=${organizationId}`,
           });
           return;
         }
@@ -163,7 +163,7 @@ describe('github app install proxy', () => {
     expect(response.json().slug).toBe('repodoctor-app');
     expect(response.json().label).toBe('GitHub');
     expect(response.json().url).toBe(
-      `https://github.com/apps/repodoctor-app/installations/new?state=${organizationId}`,
+      `https://github.com/apps/repodoctor-app/installations/select_target?state=${organizationId}`,
     );
   });
 
