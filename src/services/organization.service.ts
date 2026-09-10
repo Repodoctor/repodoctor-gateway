@@ -121,14 +121,22 @@ export class OrganizationService {
     });
   }
 
-  async disconnectGithub(userId: string, organizationId: string): Promise<void> {
+  async disconnectScm(
+    userId: string,
+    organizationId: string,
+    provider: 'github' | 'gitlab' | 'bitbucket' | 'azure_devops' = 'github',
+  ): Promise<void> {
     await this.get(userId, organizationId, 'ADMIN');
     await callService({
       baseUrl: this.config.scmServiceUrl,
-      path: `/internal/organizations/${organizationId}/github`,
+      path: `/internal/organizations/${organizationId}/${provider}`,
       method: 'DELETE',
       config: this.config,
     });
+  }
+
+  async disconnectGithub(userId: string, organizationId: string): Promise<void> {
+    return this.disconnectScm(userId, organizationId, 'github');
   }
 
   private async purgeUpstream(baseUrl: string, path: string): Promise<void> {

@@ -2,9 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CompositeMessageBus = exports.HttpMessageBus = exports.CloudflareQueuesMessageBus = exports.LocalMessageBus = void 0;
 exports.createLocalMessageBus = createLocalMessageBus;
+const resilience_1 = require("./resilience");
 /**
  * In-process bus for local development and tests.
- * Production uses the Cloudflare Queues adapter in each worker.
+ * Production Coolify services use HttpMessageBus (`EVENT_HTTP_TARGETS`) until
+ * durable queues live in Supabase.
  */
 class LocalMessageBus {
     handlers = new Map();
@@ -41,9 +43,9 @@ function createLocalMessageBus() {
     return new LocalMessageBus();
 }
 /**
- * Production Cloudflare Queues adapter. Queue consumers are configured
- * outside the process (wrangler / Cloudflare). Fastify services on Render
- * typically use HttpMessageBus to fan out until a Queue binding is available.
+ * Optional queue adapter for a future durable bus (Supabase).
+ * Production Coolify services use HttpMessageBus today. Do not bind this to
+ * Cloudflare Queues — Cloudflare hosts only the dashboard, DNS, and WAF.
  */
 class CloudflareQueuesMessageBus {
     queue;
@@ -64,6 +66,7 @@ async function resolveServiceToken(source) {
 /**
  * HTTP fan-out bus for independently deployed services.
  * Subscribers expose POST /internal/events and verify a short-lived service JWT.
+ * Durable queues belong in Supabase, not Cloudflare.
  */
 class HttpMessageBus {
     targets;
@@ -81,7 +84,7 @@ class HttpMessageBus {
         const token = await resolveServiceToken(this.serviceToken);
         const body = JSON.stringify({ topic, message });
         const results = await Promise.allSettled(this.targets.map(async (url) => {
-            const response = await this.fetchImpl(url, {
+            const response = await (0, resilience_1.resilientFetch)(`event-bus:${url}`, url, {
                 method: 'POST',
                 headers: {
                     'content-type': 'application/json',
@@ -89,7 +92,8 @@ class HttpMessageBus {
                     'x-service-token': token,
                 },
                 body,
-            });
+                signal: AbortSignal.timeout(10000),
+            }, this.fetchImpl);
             if (!response.ok) {
                 throw new Error(`event fan-out ${url} returned ${response.status}`);
             }

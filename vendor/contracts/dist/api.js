@@ -18,6 +18,7 @@ exports.ApiPaths = {
     remediation: `${exports.API_PREFIX}/remediation`,
     notifications: `${exports.API_PREFIX}/notifications`,
     auth: `${exports.API_PREFIX}/auth`,
+    webhooks: `${exports.API_PREFIX}/webhooks/:provider`,
     webhooksGithub: `${exports.API_PREFIX}/webhooks/github`,
 };
 //# sourceMappingURL=api.js.map

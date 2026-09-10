@@ -15,5 +15,6 @@ export declare const ApiPaths: {
     readonly remediation: "/api/v1/remediation";
     readonly notifications: "/api/v1/notifications";
     readonly auth: "/api/v1/auth";
+    readonly webhooks: "/api/v1/webhooks/:provider";
     readonly webhooksGithub: "/api/v1/webhooks/github";
 };

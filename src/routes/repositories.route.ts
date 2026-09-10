@@ -7,6 +7,7 @@ import {
   repositoryAccessGrantSchema,
   repositoryWithPermissionSchema,
   scmInstallationSchema,
+  scmProviderSchema,
   updateRepositoryAccessBodySchema,
   type AnalysisRun,
   type Repository,
@@ -14,7 +15,6 @@ import {
 } from '@repodoctor/contracts';
 import { badRequest } from '@repodoctor/contracts';
 import { callService } from '../services/upstream';
-import { githubAppConfigureUrl, githubAppInstallUrl } from '../services/github-install';
 
 const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
   // List SCM installations for an organization.
@@ -40,52 +40,44 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
-  // Build the GitHub App install or configure URL for a popup.
+  // Build the SCM install or configure URL for a popup (provider-generic).
   fastify.get(
-    '/api/v1/organizations/:organizationId/scm/github/install',
+    '/api/v1/organizations/:organizationId/scm/:provider/install',
     {
       schema: {
         tags: ['scm'],
-        params: z.object({ organizationId: z.string().uuid() }),
+        params: z.object({ organizationId: z.string().uuid(), provider: scmProviderSchema }),
         querystring: z.object({ externalInstallationId: z.string().min(1).optional() }),
-        response: { 200: z.object({ url: z.string().url(), slug: z.string() }) },
+        response: { 200: z.object({ url: z.string().url(), slug: z.string(), configured: z.boolean() }) },
       },
     },
     async (request) => {
       const principal = await fastify.authenticate(request);
       await fastify.organizationService.get(principal.userId, request.params.organizationId, 'MEMBER');
-      const localSlug = fastify.config.githubAppSlug.trim();
-      const slug = localSlug || undefined;
-      const resolvedSlug =
-        slug ??
-        (
-          await callService<{ slug: string; configured: boolean }>({
-            baseUrl: fastify.config.scmServiceUrl,
-            path: '/internal/github/app',
-            config: fastify.config,
-            correlationId: request.correlationId,
-          })
-        ).json.slug?.trim();
-      if (!resolvedSlug) {
-        throw badRequest('Set GITHUB_APP_SLUG on the gateway (public GitHub App slug, e.g. repodoctor-app)');
+      const params = new URLSearchParams({ organizationId: request.params.organizationId });
+      if (request.query.externalInstallationId) {
+        params.set('externalInstallationId', request.query.externalInstallationId);
       }
-      const installationId = request.query.externalInstallationId;
-      return {
-        slug: resolvedSlug,
-        url: installationId
-          ? githubAppConfigureUrl(resolvedSlug, installationId)
-          : githubAppInstallUrl(resolvedSlug, request.params.organizationId),
-      };
+      const result = await callService<{ url: string; slug: string; configured: boolean }>({
+        baseUrl: fastify.config.scmServiceUrl,
+        path: `/internal/providers/${request.params.provider}/app?${params.toString()}`,
+        config: fastify.config,
+        correlationId: request.correlationId,
+      });
+      if (!result.json.url || !result.json.slug) {
+        throw badRequest(`SCM provider ${request.params.provider} is not configured`);
+      }
+      return result.json;
     },
   );
 
-  // Finalize a GitHub App installation and ingest selected repositories.
+  // Finalize an SCM installation and ingest selected repositories.
   fastify.post(
-    '/api/v1/organizations/:organizationId/scm/github',
+    '/api/v1/organizations/:organizationId/scm/:provider',
     {
       schema: {
         tags: ['scm'],
-        params: z.object({ organizationId: z.string().uuid() }),
+        params: z.object({ organizationId: z.string().uuid(), provider: scmProviderSchema }),
         body: z.object({
           externalInstallationId: z.string().min(1),
           accountLogin: z.string().min(1).optional(),
@@ -97,7 +89,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       await fastify.organizationService.get(principal.userId, request.params.organizationId, 'MEMBER');
       const result = await callService({
         baseUrl: fastify.config.scmServiceUrl,
-        path: '/internal/installations/github',
+        path: `/internal/installations/${request.params.provider}`,
         method: 'POST',
         config: fastify.config,
         correlationId: request.correlationId,
@@ -112,18 +104,22 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
-  // Disconnect GitHub: uninstall the App and prune imported repositories.
+  // Disconnect one SCM provider: uninstall the remote app and prune imported repositories.
   fastify.delete(
-    '/api/v1/organizations/:organizationId/scm/github',
+    '/api/v1/organizations/:organizationId/scm/:provider',
     {
       schema: {
         tags: ['scm'],
-        params: z.object({ organizationId: z.string().uuid() }),
+        params: z.object({ organizationId: z.string().uuid(), provider: scmProviderSchema }),
       },
     },
     async (request, reply) => {
       const principal = await fastify.authenticate(request);
-      await fastify.organizationService.disconnectGithub(principal.userId, request.params.organizationId);
+      await fastify.organizationService.disconnectScm(
+        principal.userId,
+        request.params.organizationId,
+        request.params.provider,
+      );
       return reply.code(204).send();
     },
   );

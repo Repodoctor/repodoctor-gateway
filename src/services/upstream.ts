@@ -1,3 +1,4 @@
+import { BrokenCircuitError, RetryableHttpError, resilientFetch } from '@repodoctor/contracts';
 import { AppError, INTERNAL_SERVICE_AUDIENCE, mintServiceJwt } from '@repodoctor/contracts';
 import type { AppConfig } from '../config/env';
 
@@ -19,6 +20,14 @@ function parseUpstreamJson(text: string, path: string): unknown {
       code: 'BAD_GATEWAY',
       message: `Upstream ${path} returned a non-JSON response`,
     });
+  }
+}
+
+function policyName(baseUrl: string): string {
+  try {
+    return `gateway→${new URL(baseUrl).host}`;
+  } catch {
+    return 'gateway→upstream';
   }
 }
 
@@ -66,13 +75,33 @@ export async function callService<T>(input: {
 
   let response: Response;
   try {
-    response = await fetch(`${baseUrl}${input.path}`, {
-      method: input.method ?? 'GET',
-      headers,
-      body,
-      signal: AbortSignal.timeout(input.config.upstreamTimeoutMs),
-    });
-  } catch {
+    response = await resilientFetch(
+      policyName(baseUrl),
+      `${baseUrl}${input.path}`,
+      {
+        method: input.method ?? 'GET',
+        headers,
+        body,
+        signal: AbortSignal.timeout(input.config.upstreamTimeoutMs),
+      },
+    );
+  } catch (error) {
+    if (error instanceof BrokenCircuitError) {
+      throw new AppError({
+        statusCode: 503,
+        error: 'Service Unavailable',
+        code: 'BAD_GATEWAY',
+        message: `Upstream ${input.path} is temporarily unavailable`,
+      });
+    }
+    if (error instanceof RetryableHttpError) {
+      throw new AppError({
+        statusCode: 502,
+        error: 'Bad Gateway',
+        code: 'BAD_GATEWAY',
+        message: `Upstream ${input.path} failed (${error.status})`,
+      });
+    }
     throw new AppError({
       statusCode: 502,
       error: 'Bad Gateway',

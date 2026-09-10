@@ -4,7 +4,8 @@ export interface MessageBus {
 }
 /**
  * In-process bus for local development and tests.
- * Production uses the Cloudflare Queues adapter in each worker.
+ * Production Coolify services use HttpMessageBus (`EVENT_HTTP_TARGETS`) until
+ * durable queues live in Supabase.
  */
 export declare class LocalMessageBus implements MessageBus {
     private readonly handlers;
@@ -17,9 +18,9 @@ export interface QueueSender {
     send(body: unknown): Promise<void>;
 }
 /**
- * Production Cloudflare Queues adapter. Queue consumers are configured
- * outside the process (wrangler / Cloudflare). Fastify services on Render
- * typically use HttpMessageBus to fan out until a Queue binding is available.
+ * Optional queue adapter for a future durable bus (Supabase).
+ * Production Coolify services use HttpMessageBus today. Do not bind this to
+ * Cloudflare Queues — Cloudflare hosts only the dashboard, DNS, and WAF.
  */
 export declare class CloudflareQueuesMessageBus implements MessageBus {
     private readonly queue;
@@ -31,6 +32,7 @@ export type ServiceTokenSource = string | (() => string | Promise<string>);
 /**
  * HTTP fan-out bus for independently deployed services.
  * Subscribers expose POST /internal/events and verify a short-lived service JWT.
+ * Durable queues belong in Supabase, not Cloudflare.
  */
 export declare class HttpMessageBus implements MessageBus {
     private readonly targets;

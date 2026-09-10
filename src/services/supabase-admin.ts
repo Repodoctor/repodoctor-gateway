@@ -1,4 +1,4 @@
-import { AppError } from '@repodoctor/contracts';
+import { AppError, resilientFetch } from '@repodoctor/contracts';
 
 function authBase(supabaseUrl: string): string {
   return supabaseUrl.replace(/\/+$/, '');
@@ -19,7 +19,7 @@ export async function inviteAuthUser(input: {
   redirectTo: string;
   fetchImpl?: typeof fetch;
 }): Promise<{ invited: boolean; skipped: boolean }> {
-  const fetchImpl = input.fetchImpl ?? fetch;
+  const fetchImpl = input.fetchImpl ?? ((url, init) => resilientFetch('supabase-auth-admin', url, init));
   const response = await fetchImpl(`${authBase(input.supabaseUrl)}/auth/v1/invite`, {
     method: 'POST',
     headers: adminHeaders(input.serviceRoleKey),
@@ -45,7 +45,7 @@ export async function deleteAuthUser(input: {
   userId: string;
   fetchImpl?: typeof fetch;
 }): Promise<void> {
-  const fetchImpl = input.fetchImpl ?? fetch;
+  const fetchImpl = input.fetchImpl ?? ((url, init) => resilientFetch('supabase-auth-admin', url, init));
   const response = await fetchImpl(
     `${authBase(input.supabaseUrl)}/auth/v1/admin/users/${encodeURIComponent(input.userId)}`,
     {
