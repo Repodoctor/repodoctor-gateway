@@ -266,12 +266,19 @@ export class OrganizationService {
     if (this.config.authProvider !== 'supabase' || !this.config.supabaseServiceRoleKey || !this.config.supabaseUrl) {
       return;
     }
-    await inviteAuthUser({
-      supabaseUrl: this.config.supabaseUrl,
-      serviceRoleKey: this.config.supabaseServiceRoleKey,
-      email,
-      redirectTo: signupUrl,
-    });
+    try {
+      const result = await inviteAuthUser({
+        supabaseUrl: this.config.supabaseUrl,
+        serviceRoleKey: this.config.supabaseServiceRoleKey,
+        email,
+        redirectTo: signupUrl,
+      });
+      if (result.rateLimited) {
+        return;
+      }
+    } catch {
+      // Org invite is already stored; the dashboard copies the signup link.
+    }
   }
 
   private async deleteGoTrueUser(userId: string): Promise<void> {

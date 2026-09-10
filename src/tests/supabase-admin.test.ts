@@ -45,6 +45,17 @@ describe('supabase admin helpers', () => {
     });
   });
 
+  it('skips invite when email sending is rate limited', async () => {
+    const result = await inviteAuthUser({
+      supabaseUrl: 'https://example.supabase.co',
+      serviceRoleKey: 'service-role',
+      email: 'new@example.com',
+      redirectTo: 'https://repodoctor.dev/signup?invite=abc',
+      fetchImpl: async () => new Response('email rate limit exceeded', { status: 429 }),
+    });
+    expect(result).toEqual({ invited: false, skipped: true, rateLimited: true });
+  });
+
   it('fails closed when GoTrue invite is unavailable', async () => {
     await expect(
       inviteAuthUser({

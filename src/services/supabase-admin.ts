@@ -18,8 +18,8 @@ export async function inviteAuthUser(input: {
   email: string;
   redirectTo: string;
   fetchImpl?: typeof fetch;
-}): Promise<{ invited: boolean; skipped: boolean }> {
-  const fetchImpl = input.fetchImpl ?? ((url, init) => resilientFetch('supabase-auth-admin', url, init));
+}): Promise<{ invited: boolean; skipped: boolean; rateLimited?: boolean }> {
+  const fetchImpl = input.fetchImpl ?? fetch;
   const response = await fetchImpl(`${authBase(input.supabaseUrl)}/auth/v1/invite`, {
     method: 'POST',
     headers: adminHeaders(input.serviceRoleKey),
@@ -27,6 +27,9 @@ export async function inviteAuthUser(input: {
   });
   if (response.ok) {
     return { invited: true, skipped: false };
+  }
+  if (response.status === 429) {
+    return { invited: false, skipped: true, rateLimited: true };
   }
   if (response.status === 422 || response.status === 400) {
     return { invited: false, skipped: true };
