@@ -14,6 +14,10 @@ describe('health', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({ status: 'ok' });
     expect(response.headers['x-request-id']).toBeTruthy();
+    expect(response.headers['x-content-type-options']).toBe('nosniff');
+    expect(response.headers['x-frame-options']).toBe('DENY');
+    expect(String(response.headers['content-security-policy'] ?? '')).toContain("default-src 'none'");
+    expect(String(response.headers['content-security-policy'] ?? '')).toContain("frame-ancestors 'none'");
   });
 
   it('returns ready', async () => {
