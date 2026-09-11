@@ -23,6 +23,7 @@ describe('github app install proxy', () => {
   const now = new Date().toISOString();
   const users = new Map<string, { id: string; email: string; displayName: string; createdAt: string; updatedAt: string }>();
   const orgs = new Map<string, { id: string; name: string; slug: string; createdAt: string; updatedAt: string }>();
+  const orgOwners = new Map<string, string>();
   let upstream: Server;
   let app: ReturnType<typeof buildApp>;
 
@@ -71,7 +72,7 @@ describe('github app install proxy', () => {
           return;
         }
         if (request.method === 'POST' && url.pathname === '/internal/v1/organizations') {
-          const body = JSON.parse(await readBody(request)) as { name: string; slug?: string };
+          const body = JSON.parse(await readBody(request)) as { userId?: string; name: string; slug?: string };
           const org = {
             id: randomUUID(),
             name: body.name,
@@ -81,7 +82,20 @@ describe('github app install proxy', () => {
             role: 'OWNER' as const,
           };
           orgs.set(org.id, org);
+          if (body.userId) orgOwners.set(org.id, body.userId);
           sendJson(response, 201, org);
+          return;
+        }
+        if (request.method === 'GET' && url.pathname === '/internal/v1/organizations') {
+          const userId = url.searchParams.get('userId');
+          const items = [...orgs.values()]
+            .filter((org) => !userId || orgOwners.get(org.id) === userId)
+            .map((org) => ({ ...org, role: 'OWNER' as const }));
+          sendJson(response, 200, { items });
+          return;
+        }
+        if (request.method === 'GET' && url.pathname === '/internal/installations') {
+          sendJson(response, 200, { items: [] });
           return;
         }
         const orgMatch = url.pathname.match(/^\/internal\/v1\/organizations\/([^/]+)$/);

@@ -88,6 +88,14 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     async (request, reply) => {
       const principal = await fastify.authenticate(request);
       await fastify.organizationService.get(principal.userId, request.params.organizationId, 'MEMBER');
+      const callback = request.body.callback ?? {};
+      const callbackInstallationId =
+        typeof callback.installation_id === 'string' ? callback.installation_id : undefined;
+      await fastify.organizationService.assertScmInstallationLimit(
+        request.params.organizationId,
+        request.body.externalInstallationId ?? callbackInstallationId,
+      );
+      await fastify.organizationService.assertRepositoryLimit(request.params.organizationId);
       const result = await callService({
         baseUrl: fastify.config.scmServiceUrl,
         path: `/internal/installations/${request.params.provider}`,
@@ -307,6 +315,12 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
         request.params.repositoryId,
         'ANALYZE',
       );
+      if ((request.body as { trigger?: string } | undefined)?.trigger !== 'WEBHOOK') {
+        await fastify.organizationService.assertManualAnalysisLimit(
+          request.query.organizationId,
+          request.params.repositoryId,
+        );
+      }
       const result = await callService({
         baseUrl: fastify.config.repositoryServiceUrl,
         path: `/api/v1/repositories/${request.params.repositoryId}/analysis?organizationId=${request.query.organizationId}`,

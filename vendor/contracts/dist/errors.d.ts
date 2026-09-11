@@ -10,6 +10,7 @@ export declare const errorCodeSchema: z.ZodEnum<{
     INTERNAL: "INTERNAL";
     BAD_GATEWAY: "BAD_GATEWAY";
     NOT_IMPLEMENTED: "NOT_IMPLEMENTED";
+    PLAN_LIMIT: "PLAN_LIMIT";
 }>;
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 export declare const apiErrorSchema: z.ZodObject<{
@@ -26,6 +27,7 @@ export declare const apiErrorSchema: z.ZodObject<{
         INTERNAL: "INTERNAL";
         BAD_GATEWAY: "BAD_GATEWAY";
         NOT_IMPLEMENTED: "NOT_IMPLEMENTED";
+        PLAN_LIMIT: "PLAN_LIMIT";
     }>;
     message: z.ZodString;
     requestId: z.ZodOptional<z.ZodString>;
@@ -57,3 +59,4 @@ export declare class AppError extends Error {
 export declare function badRequest(message: string, details?: unknown): AppError;
 export declare function notFound(message: string): AppError;
 export declare function conflict(message: string): AppError;
+export declare function planLimit(message: string, details?: unknown): AppError;

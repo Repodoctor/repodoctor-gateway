@@ -16,8 +16,10 @@ import {
   assertRepoPermission,
   badRequest,
   effectiveRepoPermission,
+  FREE_PLAN,
   hasRepoPermission,
   notFound,
+  planLimit,
 } from '@repodoctor/contracts';
 import type { AppConfig } from '../config/env';
 import { callService } from './upstream';
@@ -72,11 +74,101 @@ export class OrganizationService {
   }
 
   async create(userId: string, input: { name: string; slug?: string }): Promise<Organization> {
+    await this.assertOwnedOrganizationLimit(userId);
     const { json } = await this.repo<Organization & { role: OrgRole }>('/internal/v1/organizations', {
       method: 'POST',
       body: { userId, name: input.name, slug: input.slug },
     });
     return json;
+  }
+
+  async assertOwnedOrganizationLimit(userId: string): Promise<void> {
+    const owned = (await this.listForUser(userId)).filter((org) => org.role === 'OWNER');
+    if (owned.length >= FREE_PLAN.maxOwnedOrganizations) {
+      throw planLimit(
+        `Free plan allows ${FREE_PLAN.maxOwnedOrganizations} organizations. Paid plans will be available later.`,
+        { plan: FREE_PLAN.id, limit: 'organizations', max: FREE_PLAN.maxOwnedOrganizations },
+      );
+    }
+  }
+
+  async countRepositories(organizationId: string): Promise<number> {
+    const { json } = await this.repo<{ total?: number; items?: unknown[] }>(
+      `/api/v1/repositories?organizationId=${encodeURIComponent(organizationId)}&page=1&pageSize=1`,
+    );
+    return json.total ?? json.items?.length ?? 0;
+  }
+
+  async assertRepositoryLimit(organizationId: string): Promise<void> {
+    const count = await this.countRepositories(organizationId);
+    if (count >= FREE_PLAN.maxRepositoriesPerOrganization) {
+      throw planLimit(
+        `Free plan allows ${FREE_PLAN.maxRepositoriesPerOrganization} repositories per organization.`,
+        {
+          plan: FREE_PLAN.id,
+          limit: 'repositories',
+          max: FREE_PLAN.maxRepositoriesPerOrganization,
+          current: count,
+        },
+      );
+    }
+  }
+
+  async assertMemberLimit(actorUserId: string, organizationId: string, invitingNewUser: boolean): Promise<void> {
+    const members = await this.listMembers(actorUserId, organizationId);
+    if (members.length >= FREE_PLAN.maxMembersPerOrganization) {
+      throw planLimit(
+        `Free plan allows ${FREE_PLAN.maxMembersPerOrganization} members per organization.`,
+        { plan: FREE_PLAN.id, limit: 'members', max: FREE_PLAN.maxMembersPerOrganization },
+      );
+    }
+    if (!invitingNewUser) return;
+    const invites = await this.listInvites(actorUserId, organizationId);
+    if (invites.length >= FREE_PLAN.maxPendingInvitesPerOrganization) {
+      throw planLimit(
+        `Free plan allows ${FREE_PLAN.maxPendingInvitesPerOrganization} pending invites per organization.`,
+        { plan: FREE_PLAN.id, limit: 'invites', max: FREE_PLAN.maxPendingInvitesPerOrganization },
+      );
+    }
+  }
+
+  async assertScmInstallationLimit(organizationId: string, externalInstallationId?: string): Promise<void> {
+    const { json } = await callService<{ items: Array<{ externalInstallationId: string }> }>({
+      baseUrl: this.config.scmServiceUrl,
+      path: `/internal/installations?organizationId=${encodeURIComponent(organizationId)}`,
+      config: this.config,
+    });
+    const items = json.items ?? [];
+    const reconnecting = Boolean(
+      externalInstallationId && items.some((item) => item.externalInstallationId === externalInstallationId),
+    );
+    if (!reconnecting && items.length >= FREE_PLAN.maxScmInstallationsPerOrganization) {
+      throw planLimit(
+        `Free plan allows ${FREE_PLAN.maxScmInstallationsPerOrganization} source-control installation per organization.`,
+        { plan: FREE_PLAN.id, limit: 'scmInstallations', max: FREE_PLAN.maxScmInstallationsPerOrganization },
+      );
+    }
+  }
+
+  async assertManualAnalysisLimit(organizationId: string, repositoryId: string): Promise<void> {
+    const { json } = await this.repo<{ items?: Array<{ trigger: string; createdAt: string }> }>(
+      `/api/v1/analysis?organizationId=${encodeURIComponent(organizationId)}&repositoryId=${encodeURIComponent(repositoryId)}`,
+    );
+    const start = new Date();
+    start.setUTCHours(0, 0, 0, 0);
+    const used = (json.items ?? []).filter(
+      (item) => item.trigger === 'MANUAL' && new Date(item.createdAt).getTime() >= start.getTime(),
+    ).length;
+    if (used >= FREE_PLAN.maxManualAnalysisRunsPerRepositoryPerDay) {
+      throw planLimit(
+        `Free plan allows ${FREE_PLAN.maxManualAnalysisRunsPerRepositoryPerDay} manual analysis runs per repository per day.`,
+        {
+          plan: FREE_PLAN.id,
+          limit: 'manualAnalysis',
+          max: FREE_PLAN.maxManualAnalysisRunsPerRepositoryPerDay,
+        },
+      );
+    }
   }
 
   async listForUser(userId: string): Promise<Array<Organization & { role: OrgRole }>> {
@@ -157,6 +249,8 @@ export class OrganizationService {
     organizationId: string,
     target: { email: string; role: OrgRole },
   ): Promise<AddMemberResponse> {
+    const existing = await this.getUserByEmail(target.email);
+    await this.assertMemberLimit(actorUserId, organizationId, !existing);
     const { json } = await this.repo<AddMemberResponse>(
       `/internal/v1/organizations/${organizationId}/members`,
       {

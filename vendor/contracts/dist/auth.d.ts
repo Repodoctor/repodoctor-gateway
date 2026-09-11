@@ -8,6 +8,7 @@ export declare const orgRoleSchema: z.ZodEnum<{
 export type OrgRole = z.infer<typeof orgRoleSchema>;
 export declare const repoPermissionSchema: z.ZodEnum<{
     ADMIN: "ADMIN";
+    NONE: "NONE";
     VIEW: "VIEW";
     ANALYZE: "ANALYZE";
     MANAGE: "MANAGE";

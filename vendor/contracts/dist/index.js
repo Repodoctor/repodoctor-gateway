@@ -15,6 +15,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./auth"), exports);
+__exportStar(require("./plan"), exports);
 __exportStar(require("./errors"), exports);
 __exportStar(require("./events"), exports);
 __exportStar(require("./event-payloads"), exports);

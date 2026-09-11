@@ -11,6 +11,7 @@ This is the **only** shared npm package across RepoDoctor services. Services mus
 - Authorization ranks (organization roles and repository permissions)
 - Provider-neutral `SourceControlProvider` and `MessageBus` interfaces
 - Deterministic finding fingerprints and health-score formula
+- Named Cockatiel retry + circuit breaker (`resilientFetch`, `executeSql`)
 
 ## Package
 

@@ -1,9 +1,11 @@
 # RepoDoctor Gateway
 
-Public API gateway: authentication, authorization, tenant isolation, and API aggregation.
+Public API gateway: authentication, authorization, tenant isolation, API aggregation, and Free-plan limits.
 
 GitHub: `https://github.com/Repodoctor/repodoctor-gateway`
 Image: `ghcr.io/repodoctor/repodoctor-gateway:<git-sha>`
+
+Version: `0.1.1` (alpha).
 
 ## Purpose
 
@@ -12,7 +14,8 @@ Independently deployable gateway service for RepoDoctor.
 ## Responsibilities
 
 - Authenticate users (Supabase Auth or local provider)
-- Authorize organization roles and repository permissions
+- Authorize organization roles and repository permissions (`NONE`, `VIEW`, `ANALYZE`, `MANAGE`, `ADMIN`)
+- Enforce the alpha Free plan (2 owned orgs, 20 repos per org, 5 members, 10 invites, 1 SCM install, 10 manual analyses/repo/day)
 - Enforce tenant isolation
 - CORS, rate limiting, request IDs, tracing, error envelopes
 - Aggregate public `/api/v1` routes (auth, organizations, SCM connect, repositories, analysis, findings)

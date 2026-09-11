@@ -9,7 +9,7 @@ exports.assertOrgRole = assertOrgRole;
 exports.assertRepoPermission = assertRepoPermission;
 const zod_1 = require("zod");
 exports.orgRoleSchema = zod_1.z.enum(['OWNER', 'ADMIN', 'MEMBER', 'VIEWER']);
-exports.repoPermissionSchema = zod_1.z.enum(['VIEW', 'ANALYZE', 'MANAGE', 'ADMIN']);
+exports.repoPermissionSchema = zod_1.z.enum(['NONE', 'VIEW', 'ANALYZE', 'MANAGE', 'ADMIN']);
 exports.ORG_ROLE_RANK = {
     VIEWER: 0,
     MEMBER: 1,
@@ -17,6 +17,7 @@ exports.ORG_ROLE_RANK = {
     OWNER: 3,
 };
 exports.REPO_PERMISSION_RANK = {
+    NONE: -1,
     VIEW: 0,
     ANALYZE: 1,
     MANAGE: 2,

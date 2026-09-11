@@ -5,6 +5,7 @@ exports.apiError = apiError;
 exports.badRequest = badRequest;
 exports.notFound = notFound;
 exports.conflict = conflict;
+exports.planLimit = planLimit;
 const zod_1 = require("zod");
 exports.errorCodeSchema = zod_1.z.enum([
     'BAD_REQUEST',
@@ -17,6 +18,7 @@ exports.errorCodeSchema = zod_1.z.enum([
     'INTERNAL',
     'BAD_GATEWAY',
     'NOT_IMPLEMENTED',
+    'PLAN_LIMIT',
 ]);
 exports.apiErrorSchema = zod_1.z.object({
     statusCode: zod_1.z.number().int(),
@@ -84,6 +86,15 @@ function conflict(message) {
         error: 'Conflict',
         code: 'CONFLICT',
         message,
+    });
+}
+function planLimit(message, details) {
+    return new AppError({
+        statusCode: 403,
+        error: 'Plan Limit',
+        code: 'PLAN_LIMIT',
+        message,
+        details,
     });
 }
 //# sourceMappingURL=errors.js.map

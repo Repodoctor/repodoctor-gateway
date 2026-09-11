@@ -390,6 +390,58 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
       payload: { type: 'FULL', trigger: 'MANUAL', commitSha: 'abc1234', branch: 'main' },
     });
     expect(allowed.statusCode).toBe(202);
+
+    const hidden = await app.inject({
+      method: 'PUT',
+      url: `/api/v1/repositories/${repositoryId}/access/${viewer.user.id}`,
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+      payload: { permission: 'NONE' },
+    });
+    expect(hidden.statusCode).toBe(200);
+    expect(hidden.json().permission).toBe('NONE');
+
+    const viewerHidden = await app.inject({
+      method: 'GET',
+      url: `/api/v1/repositories/${repositoryId}`,
+      headers: { authorization: `Bearer ${viewer.accessToken}` },
+    });
+    expect(viewerHidden.statusCode).toBe(403);
+
+    const viewerList = await app.inject({
+      method: 'GET',
+      url: `/api/v1/repositories?organizationId=${orgId}`,
+      headers: { authorization: `Bearer ${viewer.accessToken}` },
+    });
+    expect(viewerList.statusCode).toBe(200);
+    expect(viewerList.json().items).toHaveLength(0);
+
+    const ownerStillSees = await app.inject({
+      method: 'GET',
+      url: `/api/v1/repositories?organizationId=${orgId}`,
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+    });
+    expect(ownerStillSees.json().items).toHaveLength(1);
+  });
+
+  it('enforces the free-plan organization limit', async () => {
+    const owner = await signup('plan-owner@example.com', 'Owner');
+    for (const name of ['One Co', 'Two Co']) {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/v1/organizations',
+        headers: { authorization: `Bearer ${owner.accessToken}` },
+        payload: { name, slug: name.toLowerCase().replace(/\s+/g, '-') },
+      });
+      expect(created.statusCode).toBe(201);
+    }
+    const blocked = await app.inject({
+      method: 'POST',
+      url: '/api/v1/organizations',
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+      payload: { name: 'Three Co', slug: 'three-co' },
+    });
+    expect(blocked.statusCode).toBe(403);
+    expect(blocked.json().code).toBe('PLAN_LIMIT');
   });
 });
 

@@ -34,6 +34,7 @@ export declare const repositoryAccessSchema: z.ZodObject<{
     userId: z.ZodString;
     permission: z.ZodEnum<{
         ADMIN: "ADMIN";
+        NONE: "NONE";
         VIEW: "VIEW";
         ANALYZE: "ANALYZE";
         MANAGE: "MANAGE";
@@ -54,6 +55,7 @@ export declare const repositoryAccessGrantSchema: z.ZodObject<{
     }>;
     permission: z.ZodEnum<{
         ADMIN: "ADMIN";
+        NONE: "NONE";
         VIEW: "VIEW";
         ANALYZE: "ANALYZE";
         MANAGE: "MANAGE";
@@ -67,6 +69,7 @@ export type RepositoryAccessGrant = z.infer<typeof repositoryAccessGrantSchema>;
 export declare const updateRepositoryAccessBodySchema: z.ZodObject<{
     permission: z.ZodEnum<{
         ADMIN: "ADMIN";
+        NONE: "NONE";
         VIEW: "VIEW";
         ANALYZE: "ANALYZE";
         MANAGE: "MANAGE";
@@ -95,6 +98,7 @@ export declare const repositoryWithPermissionSchema: z.ZodObject<{
     updatedAt: z.ZodString;
     permission: z.ZodEnum<{
         ADMIN: "ADMIN";
+        NONE: "NONE";
         VIEW: "VIEW";
         ANALYZE: "ANALYZE";
         MANAGE: "MANAGE";
