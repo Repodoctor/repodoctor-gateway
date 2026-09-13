@@ -128,22 +128,12 @@ export type ConnectGithubInstallationBody = z.infer<typeof connectGithubInstalla
 export declare const requestAnalysisBodySchema: z.ZodObject<{
     type: z.ZodDefault<z.ZodEnum<{
         FULL: "FULL";
-        REPOGRAPH: "REPOGRAPH";
-        REPO_DOCTOR: "REPO_DOCTOR";
-        CODE_REVIEW: "CODE_REVIEW";
-        SECURITY: "SECURITY";
-        DEPENDENCY: "DEPENDENCY";
-        DOCUMENTATION: "DOCUMENTATION";
-        CI_DOCTOR: "CI_DOCTOR";
-        AI: "AI";
     }>>;
     trigger: z.ZodDefault<z.ZodEnum<{
         MANUAL: "MANUAL";
         WEBHOOK: "WEBHOOK";
         SCHEDULE: "SCHEDULE";
         PULL_REQUEST: "PULL_REQUEST";
-        CI_FAILURE: "CI_FAILURE";
-        REMEDIATION: "REMEDIATION";
     }>>;
     commitSha: z.ZodString;
     branch: z.ZodString;

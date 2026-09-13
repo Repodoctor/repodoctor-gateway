@@ -24,7 +24,7 @@ exports.healthScoreBreakdownSchema = zod_1.z.object({
 });
 /**
  * Deterministic 0–100 repository health score.
- * Analyzers supply measurable signals; this function never consults an LLM.
+ * Scanner results supply measurable signals; this function never consults an LLM.
  */
 function computeHealthScore(signals) {
     const deductions = [];

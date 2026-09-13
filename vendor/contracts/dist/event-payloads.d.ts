@@ -53,3 +53,8 @@ export interface AnalysisRequestedPayload {
     branch: string;
     [key: string]: unknown;
 }
+export interface AnalysisLifecyclePayload {
+    analysisRunId: string;
+    error?: string | null;
+    [key: string]: unknown;
+}

@@ -17,6 +17,7 @@ exports.SERVICE_ISSUERS = {
     scm: 'repodoctor-scm',
     repository: 'repodoctor-repository',
     findings: 'repodoctor-findings',
+    worker: 'repodoctor-worker',
 };
 function assertServiceIssuer(iss, allowed) {
     if (!allowed.includes(iss)) {

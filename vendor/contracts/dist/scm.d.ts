@@ -48,6 +48,7 @@ export interface SourceControlProvider {
     }>;
     getFileTree(repositoryId: string, ref: string): Promise<ScmFile[]>;
     getFile(repositoryId: string, path: string, ref: string): Promise<string>;
+    downloadArchive(repositoryId: string, ref: string): Promise<Buffer>;
     getPullRequest(repositoryId: string, number: number): Promise<ScmPullRequest>;
     getPullRequestDiff(repositoryId: string, number: number): Promise<string>;
     getCommits(repositoryId: string, ref: string): Promise<ScmCommit[]>;

@@ -15,19 +15,14 @@ export declare const findingStatusSchema: z.ZodEnum<{
 }>;
 export type FindingStatus = z.infer<typeof findingStatusSchema>;
 export declare const findingSourceSchema: z.ZodEnum<{
-    REPOGRAPH: "REPOGRAPH";
-    REPO_DOCTOR: "REPO_DOCTOR";
-    CODE_REVIEW: "CODE_REVIEW";
-    SECURITY: "SECURITY";
-    DEPENDENCY: "DEPENDENCY";
-    DOCUMENTATION: "DOCUMENTATION";
-    CI_DOCTOR: "CI_DOCTOR";
-    AI: "AI";
+    SEMGREP: "SEMGREP";
+    GITLEAKS: "GITLEAKS";
+    TRIVY: "TRIVY";
 }>;
 export type FindingSource = z.infer<typeof findingSourceSchema>;
 export declare const findingClassificationSchema: z.ZodEnum<{
-    AI: "AI";
     DETERMINISTIC: "DETERMINISTIC";
+    AI: "AI";
 }>;
 export type FindingClassification = z.infer<typeof findingClassificationSchema>;
 export declare const findingSchema: z.ZodObject<{
@@ -36,14 +31,9 @@ export declare const findingSchema: z.ZodObject<{
     repositoryId: z.ZodString;
     analysisRunId: z.ZodString;
     source: z.ZodEnum<{
-        REPOGRAPH: "REPOGRAPH";
-        REPO_DOCTOR: "REPO_DOCTOR";
-        CODE_REVIEW: "CODE_REVIEW";
-        SECURITY: "SECURITY";
-        DEPENDENCY: "DEPENDENCY";
-        DOCUMENTATION: "DOCUMENTATION";
-        CI_DOCTOR: "CI_DOCTOR";
-        AI: "AI";
+        SEMGREP: "SEMGREP";
+        GITLEAKS: "GITLEAKS";
+        TRIVY: "TRIVY";
     }>;
     ruleId: z.ZodString;
     severity: z.ZodEnum<{
@@ -70,8 +60,8 @@ export declare const findingSchema: z.ZodObject<{
     impact: z.ZodNullable<z.ZodString>;
     suggestedFix: z.ZodNullable<z.ZodString>;
     classification: z.ZodEnum<{
-        AI: "AI";
         DETERMINISTIC: "DETERMINISTIC";
+        AI: "AI";
     }>;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
@@ -82,14 +72,9 @@ export declare const upsertFindingBodySchema: z.ZodObject<{
     repositoryId: z.ZodString;
     analysisRunId: z.ZodString;
     source: z.ZodEnum<{
-        REPOGRAPH: "REPOGRAPH";
-        REPO_DOCTOR: "REPO_DOCTOR";
-        CODE_REVIEW: "CODE_REVIEW";
-        SECURITY: "SECURITY";
-        DEPENDENCY: "DEPENDENCY";
-        DOCUMENTATION: "DOCUMENTATION";
-        CI_DOCTOR: "CI_DOCTOR";
-        AI: "AI";
+        SEMGREP: "SEMGREP";
+        GITLEAKS: "GITLEAKS";
+        TRIVY: "TRIVY";
     }>;
     ruleId: z.ZodString;
     severity: z.ZodEnum<{
@@ -108,8 +93,8 @@ export declare const upsertFindingBodySchema: z.ZodObject<{
     impact: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     suggestedFix: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     classification: z.ZodOptional<z.ZodEnum<{
-        AI: "AI";
         DETERMINISTIC: "DETERMINISTIC";
+        AI: "AI";
     }>>;
     confidence: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
     commitSha: z.ZodString;

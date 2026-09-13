@@ -34,16 +34,6 @@ export interface AppConfig {
   scmServiceUrl: string;
   repositoryServiceUrl: string;
   findingsServiceUrl: string;
-  graphServiceUrl: string;
-  doctorServiceUrl: string;
-  ciDoctorServiceUrl: string;
-  securityServiceUrl: string;
-  dependencyServiceUrl: string;
-  codeReviewServiceUrl: string;
-  documentationServiceUrl: string;
-  aiServiceUrl: string;
-  remediationServiceUrl: string;
-  analyticsServiceUrl: string;
   dashboardPublicUrl: string;
   upstreamTimeoutMs: number;
 }
@@ -97,16 +87,6 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     scmServiceUrl: firstEnv(['SCM_SERVICE_URL', 'SCM_BASE_URL'], 'http://127.0.0.1:43112'),
     repositoryServiceUrl: firstEnv(['REPOSITORY_SERVICE_URL', 'REPOSITORY_BASE_URL'], 'http://127.0.0.1:43113'),
     findingsServiceUrl: firstEnv(['FINDINGS_SERVICE_URL', 'FINDINGS_BASE_URL'], 'http://127.0.0.1:43114'),
-    graphServiceUrl: optionalEnv('GRAPH_SERVICE_URL', 'http://127.0.0.1:43115'),
-    doctorServiceUrl: optionalEnv('DOCTOR_SERVICE_URL', 'http://127.0.0.1:43116'),
-    ciDoctorServiceUrl: optionalEnv('CI_DOCTOR_SERVICE_URL', 'http://127.0.0.1:43117'),
-    securityServiceUrl: optionalEnv('SECURITY_SERVICE_URL', 'http://127.0.0.1:43118'),
-    dependencyServiceUrl: optionalEnv('DEPENDENCY_SERVICE_URL', 'http://127.0.0.1:43119'),
-    codeReviewServiceUrl: optionalEnv('CODE_REVIEW_SERVICE_URL', 'http://127.0.0.1:43121'),
-    documentationServiceUrl: optionalEnv('DOCUMENTATION_SERVICE_URL', 'http://127.0.0.1:43122'),
-    aiServiceUrl: optionalEnv('AI_SERVICE_URL', 'http://127.0.0.1:43123'),
-    remediationServiceUrl: optionalEnv('REMEDIATION_SERVICE_URL', 'http://127.0.0.1:43124'),
-    analyticsServiceUrl: optionalEnv('ANALYTICS_SERVICE_URL', 'http://127.0.0.1:43125'),
     dashboardPublicUrl: optionalEnv('DASHBOARD_PUBLIC_URL', 'https://repodoctor.dev'),
     upstreamTimeoutMs: Number(optionalEnv('UPSTREAM_TIMEOUT_MS', '20000')),
     ...overrides,

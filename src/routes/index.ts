@@ -3,7 +3,6 @@ import healthRoute from './health.route';
 import authRoute from './auth.route';
 import usersRoute from './users.route';
 import organizationsRoute from './organizations.route';
-import catalogRoute from './catalog.route';
 import webhookRoute from './webhooks.route';
 import repositoriesRoute from './repositories.route';
 import findingsGatewayRoute from './findings.route';
@@ -17,8 +16,6 @@ const v1Routes: FastifyPluginAsyncZod = async (fastify) => {
   await fastify.register(webhookRoute);
   await fastify.register(repositoriesRoute);
   await fastify.register(findingsGatewayRoute);
-  await fastify.register(catalogRoute);
-
 };
 
 export default v1Routes;

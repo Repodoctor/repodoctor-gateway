@@ -1,14 +1,6 @@
 import { z } from 'zod';
 export declare const analysisTypeSchema: z.ZodEnum<{
     FULL: "FULL";
-    REPOGRAPH: "REPOGRAPH";
-    REPO_DOCTOR: "REPO_DOCTOR";
-    CODE_REVIEW: "CODE_REVIEW";
-    SECURITY: "SECURITY";
-    DEPENDENCY: "DEPENDENCY";
-    DOCUMENTATION: "DOCUMENTATION";
-    CI_DOCTOR: "CI_DOCTOR";
-    AI: "AI";
 }>;
 export type AnalysisType = z.infer<typeof analysisTypeSchema>;
 export declare const analysisStatusSchema: z.ZodEnum<{
@@ -24,8 +16,6 @@ export declare const analysisTriggerSchema: z.ZodEnum<{
     WEBHOOK: "WEBHOOK";
     SCHEDULE: "SCHEDULE";
     PULL_REQUEST: "PULL_REQUEST";
-    CI_FAILURE: "CI_FAILURE";
-    REMEDIATION: "REMEDIATION";
 }>;
 export type AnalysisTrigger = z.infer<typeof analysisTriggerSchema>;
 export declare const analysisRunSchema: z.ZodObject<{
@@ -34,14 +24,6 @@ export declare const analysisRunSchema: z.ZodObject<{
     organizationId: z.ZodString;
     type: z.ZodEnum<{
         FULL: "FULL";
-        REPOGRAPH: "REPOGRAPH";
-        REPO_DOCTOR: "REPO_DOCTOR";
-        CODE_REVIEW: "CODE_REVIEW";
-        SECURITY: "SECURITY";
-        DEPENDENCY: "DEPENDENCY";
-        DOCUMENTATION: "DOCUMENTATION";
-        CI_DOCTOR: "CI_DOCTOR";
-        AI: "AI";
     }>;
     status: z.ZodEnum<{
         QUEUED: "QUEUED";
@@ -60,8 +42,6 @@ export declare const analysisRunSchema: z.ZodObject<{
         WEBHOOK: "WEBHOOK";
         SCHEDULE: "SCHEDULE";
         PULL_REQUEST: "PULL_REQUEST";
-        CI_FAILURE: "CI_FAILURE";
-        REMEDIATION: "REMEDIATION";
     }>;
     error: z.ZodNullable<z.ZodString>;
     metadata: z.ZodRecord<z.ZodString, z.ZodUnknown>;
@@ -69,3 +49,12 @@ export declare const analysisRunSchema: z.ZodObject<{
     updatedAt: z.ZodString;
 }, z.core.$strip>;
 export type AnalysisRun = z.infer<typeof analysisRunSchema>;
+export declare const updateAnalysisRunBodySchema: z.ZodObject<{
+    status: z.ZodEnum<{
+        RUNNING: "RUNNING";
+        COMPLETED: "COMPLETED";
+        FAILED: "FAILED";
+    }>;
+    error: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+}, z.core.$strip>;
+export type UpdateAnalysisRunBody = z.infer<typeof updateAnalysisRunBodySchema>;

@@ -1,18 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.analysisRunSchema = exports.analysisTriggerSchema = exports.analysisStatusSchema = exports.analysisTypeSchema = void 0;
+exports.updateAnalysisRunBodySchema = exports.analysisRunSchema = exports.analysisTriggerSchema = exports.analysisStatusSchema = exports.analysisTypeSchema = void 0;
 const zod_1 = require("zod");
-exports.analysisTypeSchema = zod_1.z.enum([
-    'FULL',
-    'REPOGRAPH',
-    'REPO_DOCTOR',
-    'CODE_REVIEW',
-    'SECURITY',
-    'DEPENDENCY',
-    'DOCUMENTATION',
-    'CI_DOCTOR',
-    'AI',
-]);
+exports.analysisTypeSchema = zod_1.z.enum(['FULL']);
 exports.analysisStatusSchema = zod_1.z.enum([
     'QUEUED',
     'RUNNING',
@@ -20,14 +10,7 @@ exports.analysisStatusSchema = zod_1.z.enum([
     'FAILED',
     'CANCELLED',
 ]);
-exports.analysisTriggerSchema = zod_1.z.enum([
-    'MANUAL',
-    'WEBHOOK',
-    'SCHEDULE',
-    'PULL_REQUEST',
-    'CI_FAILURE',
-    'REMEDIATION',
-]);
+exports.analysisTriggerSchema = zod_1.z.enum(['MANUAL', 'WEBHOOK', 'SCHEDULE', 'PULL_REQUEST']);
 exports.analysisRunSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     repositoryId: zod_1.z.string().uuid(),
@@ -44,5 +27,9 @@ exports.analysisRunSchema = zod_1.z.object({
     metadata: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()),
     createdAt: zod_1.z.string().datetime(),
     updatedAt: zod_1.z.string().datetime(),
+});
+exports.updateAnalysisRunBodySchema = zod_1.z.object({
+    status: zod_1.z.enum(['RUNNING', 'COMPLETED', 'FAILED']),
+    error: zod_1.z.string().nullable().optional(),
 });
 //# sourceMappingURL=analysis.js.map

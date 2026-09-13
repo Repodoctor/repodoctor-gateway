@@ -6,6 +6,7 @@ export * from './event-payloads';
 export * from './bus';
 export * from './analysis';
 export * from './findings';
+export * from './scanners';
 export * from './fingerprint';
 export * from './organizations';
 export * from './users';

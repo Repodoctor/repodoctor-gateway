@@ -22,6 +22,7 @@ __exportStar(require("./event-payloads"), exports);
 __exportStar(require("./bus"), exports);
 __exportStar(require("./analysis"), exports);
 __exportStar(require("./findings"), exports);
+__exportStar(require("./scanners"), exports);
 __exportStar(require("./fingerprint"), exports);
 __exportStar(require("./organizations"), exports);
 __exportStar(require("./users"), exports);

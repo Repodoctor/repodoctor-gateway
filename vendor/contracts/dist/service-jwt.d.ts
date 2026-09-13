@@ -5,6 +5,7 @@ export declare const SERVICE_ISSUERS: {
     readonly scm: "repodoctor-scm";
     readonly repository: "repodoctor-repository";
     readonly findings: "repodoctor-findings";
+    readonly worker: "repodoctor-worker";
 };
 export declare function assertServiceIssuer(iss: string, allowed: readonly string[]): void;
 export interface MintServiceJwtInput {

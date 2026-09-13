@@ -4,16 +4,7 @@ exports.updateFindingStatusBodySchema = exports.upsertFindingBodySchema = export
 const zod_1 = require("zod");
 exports.findingSeveritySchema = zod_1.z.enum(['INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
 exports.findingStatusSchema = zod_1.z.enum(['OPEN', 'ACKNOWLEDGED', 'RESOLVED', 'IGNORED']);
-exports.findingSourceSchema = zod_1.z.enum([
-    'REPOGRAPH',
-    'REPO_DOCTOR',
-    'SECURITY',
-    'DEPENDENCY',
-    'DOCUMENTATION',
-    'CI_DOCTOR',
-    'CODE_REVIEW',
-    'AI',
-]);
+exports.findingSourceSchema = zod_1.z.enum(['SEMGREP', 'GITLEAKS', 'TRIVY']);
 exports.findingClassificationSchema = zod_1.z.enum(['DETERMINISTIC', 'AI']);
 exports.findingSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),

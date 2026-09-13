@@ -22,6 +22,6 @@ export declare const healthScoreBreakdownSchema: z.ZodObject<{
 export type HealthScoreBreakdown = z.infer<typeof healthScoreBreakdownSchema>;
 /**
  * Deterministic 0–100 repository health score.
- * Analyzers supply measurable signals; this function never consults an LLM.
+ * Scanner results supply measurable signals; this function never consults an LLM.
  */
 export declare function computeHealthScore(signals: HealthSignals): HealthScoreBreakdown;
