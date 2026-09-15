@@ -32,7 +32,7 @@ describe('github app install proxy', () => {
       const url = new URL(request.url ?? '/', 'http://127.0.0.1');
       void (async () => {
         if (request.method === 'GET' && url.pathname === '/internal/providers/github/app') {
-          const organizationId = url.searchParams.get('organizationId') ?? '';
+          const workspaceId = url.searchParams.get('workspaceId') ?? '';
           const external = url.searchParams.get('externalInstallationId');
           sendJson(response, 200, {
             slug: 'repodoctor-app',
@@ -40,7 +40,7 @@ describe('github app install proxy', () => {
             label: 'GitHub',
             url: external
               ? `https://github.com/apps/repodoctor-app/installations/${encodeURIComponent(external)}`
-              : `https://github.com/apps/repodoctor-app/installations/select_target?state=${organizationId}`,
+              : `https://github.com/apps/repodoctor-app/installations/select_target?state=${workspaceId}`,
           });
           return;
         }
@@ -71,7 +71,7 @@ describe('github app install proxy', () => {
           sendJson(response, 200, user);
           return;
         }
-        if (request.method === 'POST' && url.pathname === '/internal/v1/organizations') {
+        if (request.method === 'POST' && url.pathname === '/internal/v1/workspaces') {
           const body = JSON.parse(await readBody(request)) as { userId?: string; name: string; slug?: string };
           const org = {
             id: randomUUID(),
@@ -86,7 +86,7 @@ describe('github app install proxy', () => {
           sendJson(response, 201, org);
           return;
         }
-        if (request.method === 'GET' && url.pathname === '/internal/v1/organizations') {
+        if (request.method === 'GET' && url.pathname === '/internal/v1/workspaces') {
           const userId = url.searchParams.get('userId');
           const items = [...orgs.values()]
             .filter((org) => !userId || orgOwners.get(org.id) === userId)
@@ -98,11 +98,11 @@ describe('github app install proxy', () => {
           sendJson(response, 200, { items: [] });
           return;
         }
-        const orgMatch = url.pathname.match(/^\/internal\/v1\/organizations\/([^/]+)$/);
+        const orgMatch = url.pathname.match(/^\/internal\/v1\/workspaces\/([^/]+)$/);
         if (request.method === 'GET' && orgMatch) {
           const org = orgs.get(orgMatch[1]!);
           if (!org) {
-            sendJson(response, 404, { message: 'Organization not found' });
+            sendJson(response, 404, { message: 'Workspace not found' });
             return;
           }
           sendJson(response, 200, org);
@@ -113,7 +113,7 @@ describe('github app install proxy', () => {
           response.end();
           return;
         }
-        if (request.method === 'DELETE' && url.pathname.startsWith('/internal/organizations/')) {
+        if (request.method === 'DELETE' && url.pathname.startsWith('/internal/workspaces/')) {
           response.writeHead(204);
           response.end();
           return;
@@ -157,27 +157,27 @@ describe('github app install proxy', () => {
     const token = signup.json().accessToken as string;
     const org = await app.inject({
       method: 'POST',
-      url: '/api/v1/organizations',
+      url: '/api/v1/workspaces',
       headers: { authorization: `Bearer ${token}` },
       payload: { name: 'Acme', slug: 'acme-scm-install' },
     });
     expect(org.statusCode).toBe(201);
-    const organizationId = org.json().id as string;
+    const workspaceId = org.json().id as string;
     const missing = await app.inject({
       method: 'GET',
-      url: `/api/v1/organizations/${organizationId}/scm`,
+      url: `/api/v1/workspaces/${workspaceId}/scm`,
     });
     expect(missing.statusCode).toBe(401);
     const response = await app.inject({
       method: 'GET',
-      url: `/api/v1/organizations/${organizationId}/scm/github/install`,
+      url: `/api/v1/workspaces/${workspaceId}/scm/github/install`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(response.statusCode).toBe(200);
     expect(response.json().slug).toBe('repodoctor-app');
     expect(response.json().label).toBe('GitHub');
     expect(response.json().url).toBe(
-      `https://github.com/apps/repodoctor-app/installations/select_target?state=${organizationId}`,
+      `https://github.com/apps/repodoctor-app/installations/select_target?state=${workspaceId}`,
     );
   });
 
@@ -190,24 +190,24 @@ describe('github app install proxy', () => {
     const token = signup.json().accessToken as string;
     const org = await app.inject({
       method: 'POST',
-      url: '/api/v1/organizations',
+      url: '/api/v1/workspaces',
       headers: { authorization: `Bearer ${token}` },
       payload: { name: 'Disconnect Co', slug: 'disconnect-co' },
     });
-    const organizationId = org.json().id as string;
+    const workspaceId = org.json().id as string;
     const disconnected = await app.inject({
       method: 'DELETE',
-      url: `/api/v1/organizations/${organizationId}/scm/installations/11111111-1111-4111-8111-111111111111`,
+      url: `/api/v1/workspaces/${workspaceId}/scm/installations/11111111-1111-4111-8111-111111111111`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(disconnected.statusCode).toBe(204);
     const stillThere = await app.inject({
       method: 'GET',
-      url: `/api/v1/organizations/${organizationId}`,
+      url: `/api/v1/workspaces/${workspaceId}`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(stillThere.statusCode).toBe(200);
-    expect(stillThere.json().id).toBe(organizationId);
+    expect(stillThere.json().id).toBe(workspaceId);
   });
 
   it('rejects the retired GitHub-only disconnect alias', async () => {
@@ -219,14 +219,14 @@ describe('github app install proxy', () => {
     const token = signup.json().accessToken as string;
     const org = await app.inject({
       method: 'POST',
-      url: '/api/v1/organizations',
+      url: '/api/v1/workspaces',
       headers: { authorization: `Bearer ${token}` },
       payload: { name: 'Alias Co', slug: 'alias-co' },
     });
-    const organizationId = org.json().id as string;
+    const workspaceId = org.json().id as string;
     const retired = await app.inject({
       method: 'DELETE',
-      url: `/api/v1/organizations/${organizationId}/scm/github`,
+      url: `/api/v1/workspaces/${workspaceId}/scm/github`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(retired.statusCode).toBe(404);

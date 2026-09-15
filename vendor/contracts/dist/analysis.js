@@ -14,7 +14,7 @@ exports.analysisTriggerSchema = zod_1.z.enum(['MANUAL', 'WEBHOOK', 'SCHEDULE', '
 exports.analysisRunSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     repositoryId: zod_1.z.string().uuid(),
-    organizationId: zod_1.z.string().uuid(),
+    workspaceId: zod_1.z.string().uuid(),
     type: exports.analysisTypeSchema,
     status: exports.analysisStatusSchema,
     commitSha: zod_1.z.string().min(7),

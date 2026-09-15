@@ -1,4 +1,4 @@
-import { BrokenCircuitError, RetryableHttpError, resilientFetch } from '@repodoctor/contracts';
+import { BrokenCircuitError, RetryableHttpError, resilientFetch, rlsActorHeaders } from '@repodoctor/contracts';
 import { AppError, INTERNAL_SERVICE_AUDIENCE, mintServiceJwt } from '@repodoctor/contracts';
 import type { AppConfig } from '../config/env';
 
@@ -59,6 +59,7 @@ export async function callService<T>(input: {
   const headers: Record<string, string> = {
     authorization: `Bearer ${token}`,
     'x-service-token': token,
+    ...rlsActorHeaders(),
     ...(input.headers ?? {}),
   };
   if (input.correlationId) {

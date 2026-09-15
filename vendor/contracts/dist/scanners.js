@@ -7,7 +7,7 @@ exports.scannerRunStatusSchema = zod_1.z.enum(['SUCCESS', 'FAILED', 'TIMEOUT', '
 exports.scannerRunSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     analysisRunId: zod_1.z.string().uuid(),
-    organizationId: zod_1.z.string().uuid(),
+    workspaceId: zod_1.z.string().uuid(),
     repositoryId: zod_1.z.string().uuid(),
     scanner: exports.scannerIdSchema,
     scannerVersion: zod_1.z.string().min(1),

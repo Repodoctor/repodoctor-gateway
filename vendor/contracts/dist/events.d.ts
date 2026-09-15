@@ -52,7 +52,7 @@ export declare const domainEventSchema: z.ZodObject<{
     }>;
     occurredAt: z.ZodString;
     correlationId: z.ZodString;
-    organizationId: z.ZodString;
+    workspaceId: z.ZodString;
     repositoryId: z.ZodOptional<z.ZodString>;
     actorUserId: z.ZodOptional<z.ZodString>;
     payload: z.ZodRecord<z.ZodString, z.ZodUnknown>;
@@ -97,7 +97,7 @@ export declare const inboundEventSchema: z.ZodObject<{
         }>;
         occurredAt: z.ZodString;
         correlationId: z.ZodString;
-        organizationId: z.ZodString;
+        workspaceId: z.ZodString;
         repositoryId: z.ZodOptional<z.ZodString>;
         actorUserId: z.ZodOptional<z.ZodString>;
         payload: z.ZodRecord<z.ZodString, z.ZodUnknown>;
@@ -108,7 +108,7 @@ export declare function createDomainEvent<T extends Record<string, unknown>>(inp
     eventId: string;
     topic: EventTopic;
     correlationId: string;
-    organizationId: string;
+    workspaceId: string;
     repositoryId?: string;
     actorUserId?: string;
     payload: T;

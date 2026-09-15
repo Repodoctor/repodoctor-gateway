@@ -36,8 +36,8 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
     );
     await repository.listen({ host: '127.0.0.1', port: 0 });
     scm = Fastify();
-    scm.delete('/internal/organizations/:organizationId', async (_request, reply) => reply.code(204).send());
-    scm.delete('/internal/organizations/:organizationId/github', async (_request, reply) => reply.code(204).send());
+    scm.delete('/internal/workspaces/:workspaceId', async (_request, reply) => reply.code(204).send());
+    scm.delete('/internal/workspaces/:workspaceId/github', async (_request, reply) => reply.code(204).send());
     await scm.listen({ host: '127.0.0.1', port: 0 });
     app = buildApp(
       loadConfig({
@@ -109,7 +109,7 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
 
     const created = await app.inject({
       method: 'POST',
-      url: '/api/v1/organizations',
+      url: '/api/v1/workspaces',
       headers: { authorization: `Bearer ${owner.accessToken}` },
       payload: { name: 'Acme Engineering', slug: 'acme-eng' },
     });
@@ -118,28 +118,28 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
 
     const visible = await app.inject({
       method: 'GET',
-      url: '/api/v1/organizations',
+      url: '/api/v1/workspaces',
       headers: { authorization: `Bearer ${owner.accessToken}` },
     });
     expect(visible.json().items).toHaveLength(1);
 
     const hidden = await app.inject({
       method: 'GET',
-      url: `/api/v1/organizations/${org.id}`,
+      url: `/api/v1/workspaces/${org.id}`,
       headers: { authorization: `Bearer ${outsider.accessToken}` },
     });
     expect(hidden.statusCode).toBe(403);
 
     const outsiderList = await app.inject({
       method: 'GET',
-      url: '/api/v1/organizations',
+      url: '/api/v1/workspaces',
       headers: { authorization: `Bearer ${outsider.accessToken}` },
     });
     expect(outsiderList.json().items).toHaveLength(0);
 
     const removed = await app.inject({
       method: 'DELETE',
-      url: `/api/v1/organizations/${org.id}`,
+      url: `/api/v1/workspaces/${org.id}`,
       headers: { authorization: `Bearer ${owner.accessToken}` },
     });
     expect(removed.statusCode).toBe(204);
@@ -150,7 +150,7 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
     const member = await signup('member@example.com', 'Member');
     const created = await app.inject({
       method: 'POST',
-      url: '/api/v1/organizations',
+      url: '/api/v1/workspaces',
       headers: { authorization: `Bearer ${owner.accessToken}` },
       payload: { name: 'Byteforge', slug: 'byteforge' },
     });
@@ -158,7 +158,7 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
 
     const invited = await app.inject({
       method: 'POST',
-      url: `/api/v1/organizations/${orgId}/members`,
+      url: `/api/v1/workspaces/${orgId}/members`,
       headers: { authorization: `Bearer ${owner.accessToken}` },
       payload: { email: 'member@example.com', role: 'MEMBER' },
     });
@@ -167,7 +167,7 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
 
     const forbidden = await app.inject({
       method: 'POST',
-      url: `/api/v1/organizations/${orgId}/members`,
+      url: `/api/v1/workspaces/${orgId}/members`,
       headers: { authorization: `Bearer ${member.accessToken}` },
       payload: { email: 'boss@example.com', role: 'ADMIN' },
     });
@@ -186,14 +186,14 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
     const owner = await signup('inviter@example.com', 'Inviter');
     const created = await app.inject({
       method: 'POST',
-      url: '/api/v1/organizations',
+      url: '/api/v1/workspaces',
       headers: { authorization: `Bearer ${owner.accessToken}` },
       payload: { name: 'Invite Co', slug: 'invite-co' },
     });
     const orgId = created.json().id;
     const invited = await app.inject({
       method: 'POST',
-      url: `/api/v1/organizations/${orgId}/members`,
+      url: `/api/v1/workspaces/${orgId}/members`,
       headers: { authorization: `Bearer ${owner.accessToken}` },
       payload: { email: 'future@example.com', role: 'MEMBER' },
     });
@@ -209,7 +209,7 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
     const guest = await signup('future@example.com', 'Future');
     const orgs = await app.inject({
       method: 'GET',
-      url: '/api/v1/organizations',
+      url: '/api/v1/workspaces',
       headers: { authorization: `Bearer ${guest.accessToken}` },
     });
     expect(orgs.json().items).toHaveLength(1);
@@ -220,36 +220,36 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
     const member = await signup('org-member@example.com', 'Member');
     const created = await app.inject({
       method: 'POST',
-      url: '/api/v1/organizations',
+      url: '/api/v1/workspaces',
       headers: { authorization: `Bearer ${owner.accessToken}` },
       payload: { name: 'Locked Co', slug: 'locked-co' },
     });
     const orgId = created.json().id as string;
     await app.inject({
       method: 'POST',
-      url: `/api/v1/organizations/${orgId}/members`,
+      url: `/api/v1/workspaces/${orgId}/members`,
       headers: { authorization: `Bearer ${owner.accessToken}` },
       payload: { email: 'org-member@example.com', role: 'MEMBER' },
     });
     const forbidden = await app.inject({
       method: 'DELETE',
-      url: `/api/v1/organizations/${orgId}`,
+      url: `/api/v1/workspaces/${orgId}`,
       headers: { authorization: `Bearer ${member.accessToken}` },
     });
     expect(forbidden.statusCode).toBe(403);
     const stillThere = await app.inject({
       method: 'GET',
-      url: `/api/v1/organizations/${orgId}`,
+      url: `/api/v1/workspaces/${orgId}`,
       headers: { authorization: `Bearer ${owner.accessToken}` },
     });
     expect(stillThere.statusCode).toBe(200);
   });
 
-  it('deletes owned organizations when the account is removed', async () => {
+  it('deletes owned workspaces when the account is removed', async () => {
     const owner = await signup('gone@example.com', 'Gone');
     const created = await app.inject({
       method: 'POST',
-      url: '/api/v1/organizations',
+      url: '/api/v1/workspaces',
       headers: { authorization: `Bearer ${owner.accessToken}` },
       payload: { name: 'Gone Co', slug: 'gone-co' },
     });
@@ -260,10 +260,10 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
       headers: { authorization: `Bearer ${owner.accessToken}` },
     });
     expect(removed.statusCode).toBe(200);
-    expect(removed.json().deletedOrganizationIds).toEqual([created.json().id]);
+    expect(removed.json().deletedWorkspaceIds).toEqual([created.json().id]);
     const missing = await app.inject({
       method: 'GET',
-      url: '/api/v1/organizations',
+      url: '/api/v1/workspaces',
       headers: { authorization: `Bearer ${owner.accessToken}` },
     });
     expect(missing.json().items).toHaveLength(0);
@@ -274,14 +274,14 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
     const member = await signup('keep-member@example.com', 'Member');
     const created = await app.inject({
       method: 'POST',
-      url: '/api/v1/organizations',
+      url: '/api/v1/workspaces',
       headers: { authorization: `Bearer ${owner.accessToken}` },
       payload: { name: 'Keep Co', slug: 'keep-co' },
     });
     const orgId = created.json().id as string;
     await app.inject({
       method: 'POST',
-      url: `/api/v1/organizations/${orgId}/members`,
+      url: `/api/v1/workspaces/${orgId}/members`,
       headers: { authorization: `Bearer ${owner.accessToken}` },
       payload: { email: 'keep-member@example.com', role: 'MEMBER' },
     });
@@ -291,10 +291,10 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
       headers: { authorization: `Bearer ${member.accessToken}` },
     });
     expect(removed.statusCode).toBe(200);
-    expect(removed.json().deletedOrganizationIds).toEqual([]);
+    expect(removed.json().deletedWorkspaceIds).toEqual([]);
     const stillThere = await app.inject({
       method: 'GET',
-      url: `/api/v1/organizations/${orgId}`,
+      url: `/api/v1/workspaces/${orgId}`,
       headers: { authorization: `Bearer ${owner.accessToken}` },
     });
     expect(stillThere.statusCode).toBe(200);
@@ -305,14 +305,14 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
     const viewer = await signup('repo-viewer@example.com', 'Viewer');
     const created = await app.inject({
       method: 'POST',
-      url: '/api/v1/organizations',
+      url: '/api/v1/workspaces',
       headers: { authorization: `Bearer ${owner.accessToken}` },
       payload: { name: 'Perms Co', slug: 'perms-co' },
     });
     const orgId = created.json().id as string;
     await app.inject({
       method: 'POST',
-      url: `/api/v1/organizations/${orgId}/members`,
+      url: `/api/v1/workspaces/${orgId}/members`,
       headers: { authorization: `Bearer ${owner.accessToken}` },
       payload: { email: 'repo-viewer@example.com', role: 'VIEWER' },
     });
@@ -332,7 +332,7 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
           eventId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
           topic: Topics.REPOSITORY_CONNECTED,
           correlationId: 'corr-perms',
-          organizationId: orgId,
+          workspaceId: orgId,
           payload: {
             installationId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
             scmProvider: 'github',
@@ -351,7 +351,7 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
     expect(connected.statusCode).toBe(202);
     const listed = await app.inject({
       method: 'GET',
-      url: `/api/v1/repositories?organizationId=${orgId}`,
+      url: `/api/v1/repositories?workspaceId=${orgId}`,
       headers: { authorization: `Bearer ${owner.accessToken}` },
     });
     expect(listed.statusCode).toBe(200);
@@ -368,7 +368,7 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
 
     const forbidden = await app.inject({
       method: 'POST',
-      url: `/api/v1/repositories/${repositoryId}/analysis?organizationId=${orgId}`,
+      url: `/api/v1/repositories/${repositoryId}/analysis?workspaceId=${orgId}`,
       headers: { authorization: `Bearer ${viewer.accessToken}` },
       payload: { type: 'FULL', trigger: 'MANUAL', commitSha: 'abc1234', branch: 'main' },
     });
@@ -385,7 +385,7 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
 
     const allowed = await app.inject({
       method: 'POST',
-      url: `/api/v1/repositories/${repositoryId}/analysis?organizationId=${orgId}`,
+      url: `/api/v1/repositories/${repositoryId}/analysis?workspaceId=${orgId}`,
       headers: { authorization: `Bearer ${viewer.accessToken}` },
       payload: { type: 'FULL', trigger: 'MANUAL', commitSha: 'abc1234', branch: 'main' },
     });
@@ -409,7 +409,7 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
 
     const viewerList = await app.inject({
       method: 'GET',
-      url: `/api/v1/repositories?organizationId=${orgId}`,
+      url: `/api/v1/repositories?workspaceId=${orgId}`,
       headers: { authorization: `Bearer ${viewer.accessToken}` },
     });
     expect(viewerList.statusCode).toBe(200);
@@ -417,7 +417,7 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
 
     const ownerStillSees = await app.inject({
       method: 'GET',
-      url: `/api/v1/repositories?organizationId=${orgId}`,
+      url: `/api/v1/repositories?workspaceId=${orgId}`,
       headers: { authorization: `Bearer ${owner.accessToken}` },
     });
     expect(ownerStillSees.json().items).toHaveLength(1);
@@ -428,7 +428,7 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
     for (const name of ['One Co', 'Two Co']) {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/v1/organizations',
+        url: '/api/v1/workspaces',
         headers: { authorization: `Bearer ${owner.accessToken}` },
         payload: { name, slug: name.toLowerCase().replace(/\s+/g, '-') },
       });
@@ -436,7 +436,7 @@ describe.skipIf(!repositoryAvailable)('authentication and authorization', () => 
     }
     const blocked = await app.inject({
       method: 'POST',
-      url: '/api/v1/organizations',
+      url: '/api/v1/workspaces',
       headers: { authorization: `Bearer ${owner.accessToken}` },
       payload: { name: 'Three Co', slug: 'three-co' },
     });
@@ -471,7 +471,7 @@ describe('repository upstream failures', () => {
 
 describe('supabase auth configuration', () => {
   it('constructs with url and jwks and no anon key', async () => {
-    const { OrganizationService } = await import('../services/organization.service');
+    const { WorkspaceService } = await import('../services/workspace.service');
     const { SupabaseAuthService } = await import('../services/auth.service');
     const config = loadConfig({
       nodeEnv: 'test',
@@ -480,7 +480,7 @@ describe('supabase auth configuration', () => {
       supabaseJwksUrl: 'https://example.supabase.co/auth/v1/.well-known/jwks.json',
       supabaseAnonKey: '',
     });
-    const service = new SupabaseAuthService(new OrganizationService(config), config);
+    const service = new SupabaseAuthService(new WorkspaceService(config), config);
     expect(service).toBeTruthy();
   });
 

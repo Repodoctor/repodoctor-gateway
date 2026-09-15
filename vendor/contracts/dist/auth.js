@@ -1,16 +1,16 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UnauthenticatedError = exports.AuthorizationError = exports.membershipSchema = exports.authPrincipalSchema = exports.REPO_PERMISSION_RANK = exports.ORG_ROLE_RANK = exports.repoPermissionSchema = exports.orgRoleSchema = void 0;
-exports.hasOrgRole = hasOrgRole;
+exports.UnauthenticatedError = exports.AuthorizationError = exports.membershipSchema = exports.authPrincipalSchema = exports.REPO_PERMISSION_RANK = exports.WORKSPACE_ROLE_RANK = exports.repoPermissionSchema = exports.workspaceRoleSchema = void 0;
+exports.hasWorkspaceRole = hasWorkspaceRole;
 exports.hasRepoPermission = hasRepoPermission;
-exports.defaultRepoPermissionForOrgRole = defaultRepoPermissionForOrgRole;
+exports.defaultRepoPermissionForWorkspaceRole = defaultRepoPermissionForWorkspaceRole;
 exports.effectiveRepoPermission = effectiveRepoPermission;
-exports.assertOrgRole = assertOrgRole;
+exports.assertWorkspaceRole = assertWorkspaceRole;
 exports.assertRepoPermission = assertRepoPermission;
 const zod_1 = require("zod");
-exports.orgRoleSchema = zod_1.z.enum(['OWNER', 'ADMIN', 'MEMBER', 'VIEWER']);
+exports.workspaceRoleSchema = zod_1.z.enum(['OWNER', 'ADMIN', 'MEMBER', 'VIEWER']);
 exports.repoPermissionSchema = zod_1.z.enum(['NONE', 'VIEW', 'ANALYZE', 'MANAGE', 'ADMIN']);
-exports.ORG_ROLE_RANK = {
+exports.WORKSPACE_ROLE_RANK = {
     VIEWER: 0,
     MEMBER: 1,
     ADMIN: 2,
@@ -23,14 +23,14 @@ exports.REPO_PERMISSION_RANK = {
     MANAGE: 2,
     ADMIN: 3,
 };
-function hasOrgRole(actual, required) {
-    return exports.ORG_ROLE_RANK[actual] >= exports.ORG_ROLE_RANK[required];
+function hasWorkspaceRole(actual, required) {
+    return exports.WORKSPACE_ROLE_RANK[actual] >= exports.WORKSPACE_ROLE_RANK[required];
 }
 function hasRepoPermission(actual, required) {
     return exports.REPO_PERMISSION_RANK[actual] >= exports.REPO_PERMISSION_RANK[required];
 }
-/** Default repository permission granted by an organization role. */
-function defaultRepoPermissionForOrgRole(role) {
+/** Default repository permission granted by a workspace role. */
+function defaultRepoPermissionForWorkspaceRole(role) {
     switch (role) {
         case 'OWNER':
         case 'ADMIN':
@@ -41,11 +41,11 @@ function defaultRepoPermissionForOrgRole(role) {
             return 'VIEW';
     }
 }
-/** OWNER/ADMIN always have repo ADMIN. Everyone else uses an override or the org-role default. */
+/** OWNER/ADMIN always have repo ADMIN. Everyone else uses an override or the workspace-role default. */
 function effectiveRepoPermission(role, override) {
     if (role === 'OWNER' || role === 'ADMIN')
         return 'ADMIN';
-    return override ?? defaultRepoPermissionForOrgRole(role);
+    return override ?? defaultRepoPermissionForWorkspaceRole(role);
 }
 exports.authPrincipalSchema = zod_1.z.object({
     userId: zod_1.z.string().uuid(),
@@ -54,9 +54,9 @@ exports.authPrincipalSchema = zod_1.z.object({
     sessionId: zod_1.z.string().optional(),
 });
 exports.membershipSchema = zod_1.z.object({
-    organizationId: zod_1.z.string().uuid(),
+    workspaceId: zod_1.z.string().uuid(),
     userId: zod_1.z.string().uuid(),
-    role: exports.orgRoleSchema,
+    role: exports.workspaceRoleSchema,
     createdAt: zod_1.z.string().datetime(),
 });
 class AuthorizationError extends Error {
@@ -77,12 +77,12 @@ class UnauthenticatedError extends Error {
     }
 }
 exports.UnauthenticatedError = UnauthenticatedError;
-function assertOrgRole(membership, required, organizationId) {
-    if (!membership || membership.organizationId !== organizationId) {
-        throw new AuthorizationError('Not a member of this organization');
+function assertWorkspaceRole(membership, required, workspaceId) {
+    if (!membership || membership.workspaceId !== workspaceId) {
+        throw new AuthorizationError('Not a member of this workspace');
     }
-    if (!hasOrgRole(membership.role, required)) {
-        throw new AuthorizationError(`Requires organization role ${required}`);
+    if (!hasWorkspaceRole(membership.role, required)) {
+        throw new AuthorizationError(`Requires workspace role ${required}`);
     }
     return membership;
 }

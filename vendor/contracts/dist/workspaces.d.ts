@@ -1,21 +1,21 @@
 import { z } from 'zod';
-export declare const organizationSchema: z.ZodObject<{
+export declare const workspaceSchema: z.ZodObject<{
     id: z.ZodString;
     name: z.ZodString;
     slug: z.ZodString;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
 }, z.core.$strip>;
-export type Organization = z.infer<typeof organizationSchema>;
-export declare const createOrganizationBodySchema: z.ZodObject<{
+export type Workspace = z.infer<typeof workspaceSchema>;
+export declare const createWorkspaceBodySchema: z.ZodObject<{
     name: z.ZodString;
     slug: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
-export type CreateOrganizationBody = z.infer<typeof createOrganizationBodySchema>;
-export declare const updateOrganizationBodySchema: z.ZodObject<{
+export type CreateWorkspaceBody = z.infer<typeof createWorkspaceBodySchema>;
+export declare const updateWorkspaceBodySchema: z.ZodObject<{
     name: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
-export type UpdateOrganizationBody = z.infer<typeof updateOrganizationBodySchema>;
+export type UpdateWorkspaceBody = z.infer<typeof updateWorkspaceBodySchema>;
 export declare const addMemberBodySchema: z.ZodObject<{
     email: z.ZodString;
     role: z.ZodDefault<z.ZodEnum<{
@@ -35,7 +35,7 @@ export declare const updateMemberBodySchema: z.ZodObject<{
     }>;
 }, z.core.$strip>;
 export type UpdateMemberBody = z.infer<typeof updateMemberBodySchema>;
-export declare const organizationMemberSchema: z.ZodObject<{
+export declare const workspaceMemberSchema: z.ZodObject<{
     userId: z.ZodString;
     email: z.ZodString;
     displayName: z.ZodString;
@@ -47,10 +47,10 @@ export declare const organizationMemberSchema: z.ZodObject<{
     }>;
     createdAt: z.ZodString;
 }, z.core.$strip>;
-export type OrganizationMember = z.infer<typeof organizationMemberSchema>;
-export declare const organizationInviteSchema: z.ZodObject<{
+export type WorkspaceMember = z.infer<typeof workspaceMemberSchema>;
+export declare const workspaceInviteSchema: z.ZodObject<{
     id: z.ZodString;
-    organizationId: z.ZodString;
+    workspaceId: z.ZodString;
     email: z.ZodString;
     role: z.ZodEnum<{
         OWNER: "OWNER";
@@ -63,9 +63,9 @@ export declare const organizationInviteSchema: z.ZodObject<{
     expiresAt: z.ZodString;
     createdAt: z.ZodString;
 }, z.core.$strip>;
-export type OrganizationInvite = z.infer<typeof organizationInviteSchema>;
-export declare const organizationInvitePreviewSchema: z.ZodObject<{
-    organizationName: z.ZodString;
+export type WorkspaceInvite = z.infer<typeof workspaceInviteSchema>;
+export declare const workspaceInvitePreviewSchema: z.ZodObject<{
+    workspaceName: z.ZodString;
     email: z.ZodString;
     role: z.ZodEnum<{
         OWNER: "OWNER";
@@ -76,7 +76,7 @@ export declare const organizationInvitePreviewSchema: z.ZodObject<{
     expiresAt: z.ZodString;
     expired: z.ZodBoolean;
 }, z.core.$strip>;
-export type OrganizationInvitePreview = z.infer<typeof organizationInvitePreviewSchema>;
+export type WorkspaceInvitePreview = z.infer<typeof workspaceInvitePreviewSchema>;
 export declare const addMemberResponseSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     status: z.ZodLiteral<"added">;
     member: z.ZodObject<{
@@ -95,7 +95,7 @@ export declare const addMemberResponseSchema: z.ZodDiscriminatedUnion<[z.ZodObje
     status: z.ZodLiteral<"invited">;
     invite: z.ZodObject<{
         id: z.ZodString;
-        organizationId: z.ZodString;
+        workspaceId: z.ZodString;
         email: z.ZodString;
         role: z.ZodEnum<{
             OWNER: "OWNER";

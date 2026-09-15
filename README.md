@@ -18,7 +18,7 @@ Independently deployable gateway service for RepoDoctor.
 - Enforce the alpha Free plan (2 owned orgs, 20 repos per org, 5 members, 10 invites, 1 SCM install, 10 manual analyses/repo/day)
 - Enforce tenant isolation
 - CORS, rate limiting, request IDs, tracing, error envelopes
-- Aggregate public `/api/v1` routes (auth, organizations, SCM connect, repositories, analysis, findings)
+- Aggregate public `/api/v1` routes (auth, workspaces, SCM connect, repositories, analysis, findings)
 - Forward SCM webhooks with the original raw body to `repodoctor-scm`
 
 ## API

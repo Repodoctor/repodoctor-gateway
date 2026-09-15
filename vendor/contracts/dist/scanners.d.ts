@@ -15,7 +15,7 @@ export type ScannerRunStatus = z.infer<typeof scannerRunStatusSchema>;
 export declare const scannerRunSchema: z.ZodObject<{
     id: z.ZodString;
     analysisRunId: z.ZodString;
-    organizationId: z.ZodString;
+    workspaceId: z.ZodString;
     repositoryId: z.ZodString;
     scanner: z.ZodEnum<{
         semgrep: "semgrep";
@@ -58,7 +58,7 @@ export declare const upsertScannerRunBodySchema: z.ZodObject<{
 export type UpsertScannerRunBody = z.infer<typeof upsertScannerRunBodySchema>;
 export interface ScannerContext {
     analysisRunId: string;
-    organizationId: string;
+    workspaceId: string;
     repositoryId: string;
     commitSha: string;
     branch: string;

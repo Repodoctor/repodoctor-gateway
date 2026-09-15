@@ -21,7 +21,7 @@ export type AnalysisTrigger = z.infer<typeof analysisTriggerSchema>;
 export declare const analysisRunSchema: z.ZodObject<{
     id: z.ZodString;
     repositoryId: z.ZodString;
-    organizationId: z.ZodString;
+    workspaceId: z.ZodString;
     type: z.ZodEnum<{
         FULL: "FULL";
     }>;

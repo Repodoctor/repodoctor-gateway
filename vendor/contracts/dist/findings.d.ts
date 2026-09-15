@@ -27,7 +27,7 @@ export declare const findingClassificationSchema: z.ZodEnum<{
 export type FindingClassification = z.infer<typeof findingClassificationSchema>;
 export declare const findingSchema: z.ZodObject<{
     id: z.ZodString;
-    organizationId: z.ZodString;
+    workspaceId: z.ZodString;
     repositoryId: z.ZodString;
     analysisRunId: z.ZodString;
     source: z.ZodEnum<{
@@ -68,7 +68,7 @@ export declare const findingSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type Finding = z.infer<typeof findingSchema>;
 export declare const upsertFindingBodySchema: z.ZodObject<{
-    organizationId: z.ZodString;
+    workspaceId: z.ZodString;
     repositoryId: z.ZodString;
     analysisRunId: z.ZodString;
     source: z.ZodEnum<{

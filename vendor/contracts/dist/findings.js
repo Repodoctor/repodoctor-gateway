@@ -8,7 +8,7 @@ exports.findingSourceSchema = zod_1.z.enum(['SEMGREP', 'GITLEAKS', 'TRIVY']);
 exports.findingClassificationSchema = zod_1.z.enum(['DETERMINISTIC', 'AI']);
 exports.findingSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
-    organizationId: zod_1.z.string().uuid(),
+    workspaceId: zod_1.z.string().uuid(),
     repositoryId: zod_1.z.string().uuid(),
     analysisRunId: zod_1.z.string().uuid(),
     source: exports.findingSourceSchema,
@@ -30,7 +30,7 @@ exports.findingSchema = zod_1.z.object({
     updatedAt: zod_1.z.string().datetime(),
 });
 exports.upsertFindingBodySchema = zod_1.z.object({
-    organizationId: zod_1.z.string().uuid(),
+    workspaceId: zod_1.z.string().uuid(),
     repositoryId: zod_1.z.string().uuid(),
     analysisRunId: zod_1.z.string().uuid(),
     source: exports.findingSourceSchema,

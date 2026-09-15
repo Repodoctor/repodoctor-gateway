@@ -1,23 +1,23 @@
 import fp from 'fastify-plugin';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
-import { UnauthenticatedError, type AuthPrincipal } from '@repodoctor/contracts';
+import { UnauthenticatedError, enterRlsContext, type AuthPrincipal } from '@repodoctor/contracts';
 import { createAuthService, type AuthService } from '../services/auth.service';
-import { OrganizationService } from '../services/organization.service';
+import { WorkspaceService } from '../services/workspace.service';
 
 declare module 'fastify' {
   interface FastifyInstance {
     authService: AuthService;
-    organizationService: OrganizationService;
+    workspaceService: WorkspaceService;
     authenticate: (request: FastifyRequest) => Promise<AuthPrincipal>;
   }
 }
 
 const userAuthPlugin: FastifyPluginAsync = async (fastify) => {
-  const organizationService = new OrganizationService(fastify.config);
-  const authService = createAuthService(fastify.config, organizationService);
+  const workspaceService = new WorkspaceService(fastify.config);
+  const authService = createAuthService(fastify.config, workspaceService);
 
   fastify.decorate('authService', authService);
-  fastify.decorate('organizationService', organizationService);
+  fastify.decorate('workspaceService', workspaceService);
   fastify.decorate('authenticate', async (request: FastifyRequest) => {
     const header = request.headers.authorization;
     if (!header?.startsWith('Bearer ')) {
@@ -26,7 +26,8 @@ const userAuthPlugin: FastifyPluginAsync = async (fastify) => {
     const token = header.slice('Bearer '.length);
     const user = await authService.userFromAccessToken(token);
     const displayName = (user.displayName || user.email).slice(0, 80);
-    await organizationService.ensureUser({
+    enterRlsContext({ mode: 'app', userId: user.id });
+    await workspaceService.ensureUser({
       id: user.id,
       email: user.email,
       displayName,

@@ -9,7 +9,7 @@ import {
   type User,
 } from '@repodoctor/contracts';
 import type { AppConfig } from '../config/env';
-import type { OrganizationService } from './organization.service';
+import type { WorkspaceService } from './workspace.service';
 
 export interface AuthService {
   signup(input: { email: string; password: string; displayName: string }): Promise<Session>;
@@ -60,7 +60,7 @@ function metadataString(payload: JWTPayload, key: string): string | undefined {
 /** Test/dev path: JWTs are self-contained. Users persist in the repository service. */
 export class LocalAuthService implements AuthService {
   constructor(
-    private readonly identity: OrganizationService,
+    private readonly identity: WorkspaceService,
     private readonly jwtSecret: string,
   ) {}
 
@@ -180,7 +180,7 @@ export class SupabaseAuthService implements AuthService {
   private readonly issuer: string;
 
   constructor(
-    private readonly identity: OrganizationService,
+    private readonly identity: WorkspaceService,
     config: AppConfig,
   ) {
     if (!config.supabaseUrl || !config.supabaseJwksUrl) {
@@ -270,7 +270,7 @@ export class SupabaseAuthService implements AuthService {
   }
 }
 
-export function createAuthService(config: AppConfig, identity: OrganizationService): AuthService {
+export function createAuthService(config: AppConfig, identity: WorkspaceService): AuthService {
   if (config.authProvider === 'supabase') {
     return new SupabaseAuthService(identity, config);
   }

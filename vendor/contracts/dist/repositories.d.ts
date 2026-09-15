@@ -8,7 +8,8 @@ export declare const scmProviderSchema: z.ZodEnum<{
 export type ScmProvider = z.infer<typeof scmProviderSchema>;
 export declare const repositorySchema: z.ZodObject<{
     id: z.ZodString;
-    organizationId: z.ZodString;
+    workspaceId: z.ZodString;
+    workspaceName: z.ZodDefault<z.ZodString>;
     scmProvider: z.ZodEnum<{
         github: "github";
         gitlab: "gitlab";
@@ -29,7 +30,7 @@ export declare const repositorySchema: z.ZodObject<{
 }, z.core.$strip>;
 export type Repository = z.infer<typeof repositorySchema>;
 export declare const repositoryAccessSchema: z.ZodObject<{
-    organizationId: z.ZodString;
+    workspaceId: z.ZodString;
     repositoryId: z.ZodString;
     userId: z.ZodString;
     permission: z.ZodEnum<{
@@ -78,7 +79,8 @@ export declare const updateRepositoryAccessBodySchema: z.ZodObject<{
 export type UpdateRepositoryAccessBody = z.infer<typeof updateRepositoryAccessBodySchema>;
 export declare const repositoryWithPermissionSchema: z.ZodObject<{
     id: z.ZodString;
-    organizationId: z.ZodString;
+    workspaceId: z.ZodString;
+    workspaceName: z.ZodDefault<z.ZodString>;
     scmProvider: z.ZodEnum<{
         github: "github";
         gitlab: "gitlab";
@@ -107,7 +109,7 @@ export declare const repositoryWithPermissionSchema: z.ZodObject<{
 export type RepositoryWithPermission = z.infer<typeof repositoryWithPermissionSchema>;
 export declare const scmInstallationSchema: z.ZodObject<{
     id: z.ZodString;
-    organizationId: z.ZodString;
+    workspaceId: z.ZodString;
     provider: z.ZodEnum<{
         github: "github";
         gitlab: "gitlab";

@@ -22,7 +22,7 @@ const authRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (request, reply) => {
       const session = await fastify.authService.signup(request.body);
-      await fastify.organizationService.ensureUser(session.user);
+      await fastify.workspaceService.ensureUser(session.user);
       reply.code(201);
       return session;
     },
@@ -41,7 +41,7 @@ const authRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (request) => {
       const session = await fastify.authService.login(request.body);
-      await fastify.organizationService.ensureUser(session.user);
+      await fastify.workspaceService.ensureUser(session.user);
       return session;
     },
   );

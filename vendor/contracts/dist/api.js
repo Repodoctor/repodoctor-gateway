@@ -4,7 +4,7 @@ exports.ApiPaths = exports.API_PREFIX = void 0;
 exports.API_PREFIX = '/api/v1';
 exports.ApiPaths = {
     users: `${exports.API_PREFIX}/users`,
-    organizations: `${exports.API_PREFIX}/organizations`,
+    workspaces: `${exports.API_PREFIX}/workspaces`,
     repositories: `${exports.API_PREFIX}/repositories`,
     analysis: `${exports.API_PREFIX}/analysis`,
     findings: `${exports.API_PREFIX}/findings`,

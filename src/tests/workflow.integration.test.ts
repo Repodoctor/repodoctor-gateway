@@ -94,16 +94,16 @@ describe.skipIf(!scmAvailable || !repositoryAvailable)('github webhook to analys
 
     const org = await gateway.inject({
       method: 'POST',
-      url: '/api/v1/organizations',
+      url: '/api/v1/workspaces',
       headers: auth,
       payload: { name: 'Acme', slug: 'acme-workflow' },
     });
     expect(org.statusCode).toBe(201);
-    const organizationId = org.json().id as string;
+    const workspaceId = org.json().id as string;
 
     const install = await gateway.inject({
       method: 'GET',
-      url: `/api/v1/organizations/${organizationId}/scm/github/install`,
+      url: `/api/v1/workspaces/${workspaceId}/scm/github/install`,
       headers: auth,
     });
     expect(install.statusCode).toBe(200);
@@ -112,7 +112,7 @@ describe.skipIf(!scmAvailable || !repositoryAvailable)('github webhook to analys
 
     const connected = await gateway.inject({
       method: 'POST',
-      url: `/api/v1/organizations/${organizationId}/scm/github`,
+      url: `/api/v1/workspaces/${workspaceId}/scm/github`,
       headers: auth,
       payload: { externalInstallationId: '4242', accountLogin: 'acme' },
     });
@@ -120,7 +120,7 @@ describe.skipIf(!scmAvailable || !repositoryAvailable)('github webhook to analys
 
     const repos = await gateway.inject({
       method: 'GET',
-      url: `/api/v1/repositories?organizationId=${organizationId}`,
+      url: `/api/v1/repositories?workspaceId=${workspaceId}`,
       headers: auth,
     });
     expect(repos.statusCode).toBe(200);
@@ -137,7 +137,7 @@ describe.skipIf(!scmAvailable || !repositoryAvailable)('github webhook to analys
 
     const analysesAfterConnect = await gateway.inject({
       method: 'GET',
-      url: `/api/v1/analysis?organizationId=${organizationId}&repositoryId=${repositoryId}`,
+      url: `/api/v1/analysis?workspaceId=${workspaceId}&repositoryId=${repositoryId}`,
       headers: auth,
     });
     expect(analysesAfterConnect.json().items.length).toBeGreaterThanOrEqual(1);
@@ -172,7 +172,7 @@ describe.skipIf(!scmAvailable || !repositoryAvailable)('github webhook to analys
 
     const analysesAfterPush = await gateway.inject({
       method: 'GET',
-      url: `/api/v1/analysis?organizationId=${organizationId}&repositoryId=${repositoryId}`,
+      url: `/api/v1/analysis?workspaceId=${workspaceId}&repositoryId=${repositoryId}`,
       headers: auth,
     });
     expect(analysesAfterPush.json().items.length).toBeGreaterThan(analysesAfterConnect.json().items.length);

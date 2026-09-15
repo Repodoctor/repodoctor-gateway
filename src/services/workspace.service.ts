@@ -1,10 +1,10 @@
 import type {
   AddMemberResponse,
-  OrgRole,
-  Organization,
-  OrganizationInvite,
-  OrganizationInvitePreview,
-  OrganizationMember,
+  WorkspaceRole,
+  Workspace,
+  WorkspaceInvite,
+  WorkspaceInvitePreview,
+  WorkspaceMember,
   RepoPermission,
   Repository,
   RepositoryAccess,
@@ -25,7 +25,7 @@ import type { AppConfig } from '../config/env';
 import { callService } from './upstream';
 import { deleteAuthUser, inviteAuthUser } from './supabase-admin';
 
-export class OrganizationService {
+export class WorkspaceService {
   private readonly ensuredUsers = new Map<string, { user: User; at: number }>();
 
   constructor(private readonly config: AppConfig) {}
@@ -73,86 +73,86 @@ export class OrganizationService {
     return json.user;
   }
 
-  async create(userId: string, input: { name: string; slug?: string }): Promise<Organization> {
-    await this.assertOwnedOrganizationLimit(userId);
-    const { json } = await this.repo<Organization & { role: OrgRole }>('/internal/v1/organizations', {
+  async create(userId: string, input: { name: string; slug?: string }): Promise<Workspace> {
+    await this.assertOwnedWorkspaceLimit(userId);
+    const { json } = await this.repo<Workspace & { role: WorkspaceRole }>('/internal/v1/workspaces', {
       method: 'POST',
       body: { userId, name: input.name, slug: input.slug },
     });
     return json;
   }
 
-  async assertOwnedOrganizationLimit(userId: string): Promise<void> {
+  async assertOwnedWorkspaceLimit(userId: string): Promise<void> {
     const owned = (await this.listForUser(userId)).filter((org) => org.role === 'OWNER');
-    if (owned.length >= FREE_PLAN.maxOwnedOrganizations) {
+    if (owned.length >= FREE_PLAN.maxOwnedWorkspaces) {
       throw planLimit(
-        `Free plan allows ${FREE_PLAN.maxOwnedOrganizations} organizations. Paid plans will be available later.`,
-        { plan: FREE_PLAN.id, limit: 'organizations', max: FREE_PLAN.maxOwnedOrganizations },
+        `Free plan allows ${FREE_PLAN.maxOwnedWorkspaces} workspaces. Paid plans will be available later.`,
+        { plan: FREE_PLAN.id, limit: 'workspaces', max: FREE_PLAN.maxOwnedWorkspaces },
       );
     }
   }
 
-  async countRepositories(organizationId: string): Promise<number> {
+  async countRepositories(workspaceId: string): Promise<number> {
     const { json } = await this.repo<{ total?: number; items?: unknown[] }>(
-      `/api/v1/repositories?organizationId=${encodeURIComponent(organizationId)}&page=1&pageSize=1`,
+      `/api/v1/repositories?workspaceId=${encodeURIComponent(workspaceId)}&page=1&pageSize=1`,
     );
     return json.total ?? json.items?.length ?? 0;
   }
 
-  async assertRepositoryLimit(organizationId: string): Promise<void> {
-    const count = await this.countRepositories(organizationId);
-    if (count >= FREE_PLAN.maxRepositoriesPerOrganization) {
+  async assertRepositoryLimit(workspaceId: string): Promise<void> {
+    const count = await this.countRepositories(workspaceId);
+    if (count >= FREE_PLAN.maxRepositoriesPerWorkspace) {
       throw planLimit(
-        `Free plan allows ${FREE_PLAN.maxRepositoriesPerOrganization} repositories per organization.`,
+        `Free plan allows ${FREE_PLAN.maxRepositoriesPerWorkspace} repositories per workspace.`,
         {
           plan: FREE_PLAN.id,
           limit: 'repositories',
-          max: FREE_PLAN.maxRepositoriesPerOrganization,
+          max: FREE_PLAN.maxRepositoriesPerWorkspace,
           current: count,
         },
       );
     }
   }
 
-  async assertMemberLimit(actorUserId: string, organizationId: string, invitingNewUser: boolean): Promise<void> {
-    const members = await this.listMembers(actorUserId, organizationId);
-    if (members.length >= FREE_PLAN.maxMembersPerOrganization) {
+  async assertMemberLimit(actorUserId: string, workspaceId: string, invitingNewUser: boolean): Promise<void> {
+    const members = await this.listMembers(actorUserId, workspaceId);
+    if (members.length >= FREE_PLAN.maxMembersPerWorkspace) {
       throw planLimit(
-        `Free plan allows ${FREE_PLAN.maxMembersPerOrganization} members per organization.`,
-        { plan: FREE_PLAN.id, limit: 'members', max: FREE_PLAN.maxMembersPerOrganization },
+        `Free plan allows ${FREE_PLAN.maxMembersPerWorkspace} members per workspace.`,
+        { plan: FREE_PLAN.id, limit: 'members', max: FREE_PLAN.maxMembersPerWorkspace },
       );
     }
     if (!invitingNewUser) return;
-    const invites = await this.listInvites(actorUserId, organizationId);
-    if (invites.length >= FREE_PLAN.maxPendingInvitesPerOrganization) {
+    const invites = await this.listInvites(actorUserId, workspaceId);
+    if (invites.length >= FREE_PLAN.maxPendingInvitesPerWorkspace) {
       throw planLimit(
-        `Free plan allows ${FREE_PLAN.maxPendingInvitesPerOrganization} pending invites per organization.`,
-        { plan: FREE_PLAN.id, limit: 'invites', max: FREE_PLAN.maxPendingInvitesPerOrganization },
+        `Free plan allows ${FREE_PLAN.maxPendingInvitesPerWorkspace} pending invites per workspace.`,
+        { plan: FREE_PLAN.id, limit: 'invites', max: FREE_PLAN.maxPendingInvitesPerWorkspace },
       );
     }
   }
 
-  async assertScmInstallationLimit(organizationId: string, externalInstallationId?: string): Promise<void> {
+  async assertScmInstallationLimit(workspaceId: string, externalInstallationId?: string): Promise<void> {
     const { json } = await callService<{ items: Array<{ externalInstallationId: string }> }>({
       baseUrl: this.config.scmServiceUrl,
-      path: `/internal/installations?organizationId=${encodeURIComponent(organizationId)}`,
+      path: `/internal/installations?workspaceId=${encodeURIComponent(workspaceId)}`,
       config: this.config,
     });
     const items = json.items ?? [];
     const reconnecting = Boolean(
       externalInstallationId && items.some((item) => item.externalInstallationId === externalInstallationId),
     );
-    if (!reconnecting && items.length >= FREE_PLAN.maxScmInstallationsPerOrganization) {
+    if (!reconnecting && items.length >= FREE_PLAN.maxScmInstallationsPerWorkspace) {
       throw planLimit(
-        `Free plan allows ${FREE_PLAN.maxScmInstallationsPerOrganization} source-control installation per organization.`,
-        { plan: FREE_PLAN.id, limit: 'scmInstallations', max: FREE_PLAN.maxScmInstallationsPerOrganization },
+        `Free plan allows ${FREE_PLAN.maxScmInstallationsPerWorkspace} source-control installations per workspace.`,
+        { plan: FREE_PLAN.id, limit: 'scmInstallations', max: FREE_PLAN.maxScmInstallationsPerWorkspace },
       );
     }
   }
 
-  async assertManualAnalysisLimit(organizationId: string, repositoryId: string): Promise<void> {
+  async assertManualAnalysisLimit(workspaceId: string, repositoryId: string): Promise<void> {
     const { json } = await this.repo<{ items?: Array<{ trigger: string; createdAt: string }> }>(
-      `/api/v1/analysis?organizationId=${encodeURIComponent(organizationId)}&repositoryId=${encodeURIComponent(repositoryId)}`,
+      `/api/v1/analysis?workspaceId=${encodeURIComponent(workspaceId)}&repositoryId=${encodeURIComponent(repositoryId)}`,
     );
     const start = new Date();
     start.setUTCHours(0, 0, 0, 0);
@@ -171,53 +171,53 @@ export class OrganizationService {
     }
   }
 
-  async listForUser(userId: string): Promise<Array<Organization & { role: OrgRole }>> {
-    const { json } = await this.repo<{ items?: Array<Organization & { role: OrgRole }> }>(
-      `/internal/v1/organizations?userId=${encodeURIComponent(userId)}`,
+  async listForUser(userId: string): Promise<Array<Workspace & { role: WorkspaceRole }>> {
+    const { json } = await this.repo<{ items?: Array<Workspace & { role: WorkspaceRole }> }>(
+      `/internal/v1/workspaces?userId=${encodeURIComponent(userId)}`,
     );
     return json.items ?? [];
   }
 
   async get(
     userId: string,
-    organizationId: string,
-    required: OrgRole = 'VIEWER',
-  ): Promise<Organization & { role: OrgRole }> {
+    workspaceId: string,
+    required: WorkspaceRole = 'VIEWER',
+  ): Promise<Workspace & { role: WorkspaceRole }> {
     const query = new URLSearchParams({ userId, required });
-    const { json } = await this.repo<Organization & { role: OrgRole }>(
-      `/internal/v1/organizations/${organizationId}?${query.toString()}`,
+    const { json } = await this.repo<Workspace & { role: WorkspaceRole }>(
+      `/internal/v1/workspaces/${workspaceId}?${query.toString()}`,
     );
     return json;
   }
 
-  async update(userId: string, organizationId: string, name: string): Promise<Organization> {
+  async update(userId: string, workspaceId: string, name: string): Promise<Workspace> {
     if (!name) throw badRequest('name is required');
-    const { json } = await this.repo<Organization>(`/internal/v1/organizations/${organizationId}`, {
+    const { json } = await this.repo<Workspace>(`/internal/v1/workspaces/${workspaceId}`, {
       method: 'PATCH',
       body: { userId, name },
     });
     return json;
   }
 
-  async delete(userId: string, organizationId: string): Promise<void> {
-    await this.get(userId, organizationId, 'ADMIN');
+  async delete(userId: string, workspaceId: string): Promise<void> {
+    await this.get(userId, workspaceId, 'ADMIN');
     await callService({
       baseUrl: this.config.scmServiceUrl,
-      path: `/internal/organizations/${organizationId}`,
+      path: `/internal/workspaces/${workspaceId}`,
       method: 'DELETE',
       config: this.config,
     });
-    await this.purgeUpstream(this.config.findingsServiceUrl, `/internal/organizations/${organizationId}`);
-    await this.repo(`/internal/v1/organizations/${organizationId}?userId=${encodeURIComponent(userId)}`, {
+    await this.purgeUpstream(this.config.findingsServiceUrl, `/internal/workspaces/${workspaceId}`);
+    await this.repo(`/internal/v1/workspaces/${workspaceId}?userId=${encodeURIComponent(userId)}`, {
       method: 'DELETE',
     });
   }
 
-  async disconnectInstallation(userId: string, organizationId: string, installationId: string): Promise<void> {
-    await this.get(userId, organizationId, 'ADMIN');
+  async disconnectInstallation(userId: string, workspaceId: string, installationId: string): Promise<void> {
+    await this.get(userId, workspaceId, 'ADMIN');
     await callService({
       baseUrl: this.config.scmServiceUrl,
-      path: `/internal/installations/${installationId}?organizationId=${organizationId}`,
+      path: `/internal/installations/${installationId}?workspaceId=${workspaceId}`,
       method: 'DELETE',
       config: this.config,
     });
@@ -237,22 +237,22 @@ export class OrganizationService {
     }
   }
 
-  async listMembers(userId: string, organizationId: string): Promise<OrganizationMember[]> {
-    const { json } = await this.repo<{ items: OrganizationMember[] }>(
-      `/internal/v1/organizations/${organizationId}/members?userId=${encodeURIComponent(userId)}`,
+  async listMembers(userId: string, workspaceId: string): Promise<WorkspaceMember[]> {
+    const { json } = await this.repo<{ items: WorkspaceMember[] }>(
+      `/internal/v1/workspaces/${workspaceId}/members?userId=${encodeURIComponent(userId)}`,
     );
     return json.items ?? [];
   }
 
   async addMember(
     actorUserId: string,
-    organizationId: string,
-    target: { email: string; role: OrgRole },
+    workspaceId: string,
+    target: { email: string; role: WorkspaceRole },
   ): Promise<AddMemberResponse> {
     const existing = await this.getUserByEmail(target.email);
-    await this.assertMemberLimit(actorUserId, organizationId, !existing);
+    await this.assertMemberLimit(actorUserId, workspaceId, !existing);
     const { json } = await this.repo<AddMemberResponse>(
-      `/internal/v1/organizations/${organizationId}/members`,
+      `/internal/v1/workspaces/${workspaceId}/members`,
       {
         method: 'POST',
         body: { userId: actorUserId, email: target.email, role: target.role },
@@ -269,40 +269,40 @@ export class OrganizationService {
     return json;
   }
 
-  async listInvites(userId: string, organizationId: string): Promise<OrganizationInvite[]> {
-    const { json } = await this.repo<{ items: OrganizationInvite[] }>(
-      `/internal/v1/organizations/${organizationId}/invites?userId=${encodeURIComponent(userId)}`,
+  async listInvites(userId: string, workspaceId: string): Promise<WorkspaceInvite[]> {
+    const { json } = await this.repo<{ items: WorkspaceInvite[] }>(
+      `/internal/v1/workspaces/${workspaceId}/invites?userId=${encodeURIComponent(userId)}`,
     );
     return (json.items ?? []).map((invite) => this.withSignupUrl(invite));
   }
 
-  async revokeInvite(userId: string, organizationId: string, inviteId: string): Promise<void> {
+  async revokeInvite(userId: string, workspaceId: string, inviteId: string): Promise<void> {
     await this.repo(
-      `/internal/v1/organizations/${organizationId}/invites/${inviteId}?userId=${encodeURIComponent(userId)}`,
+      `/internal/v1/workspaces/${workspaceId}/invites/${inviteId}?userId=${encodeURIComponent(userId)}`,
       { method: 'DELETE' },
     );
   }
 
-  async getInvitePreview(token: string): Promise<OrganizationInvitePreview> {
-    const { json } = await this.repo<OrganizationInvitePreview>(
+  async getInvitePreview(token: string): Promise<WorkspaceInvitePreview> {
+    const { json } = await this.repo<WorkspaceInvitePreview>(
       `/internal/v1/invites/${encodeURIComponent(token)}`,
     );
     return json;
   }
 
-  async acceptInvite(userId: string, token: string): Promise<OrganizationMember> {
-    const { json } = await this.repo<OrganizationMember>(`/internal/v1/invites/${encodeURIComponent(token)}/accept`, {
+  async acceptInvite(userId: string, token: string): Promise<WorkspaceMember> {
+    const { json } = await this.repo<WorkspaceMember>(`/internal/v1/invites/${encodeURIComponent(token)}/accept`, {
       method: 'POST',
       body: { userId },
     });
     return json;
   }
 
-  private withSignupUrl(invite: OrganizationInvite): OrganizationInvite {
+  private withSignupUrl(invite: WorkspaceInvite): WorkspaceInvite {
     const origin = dashboardOrigin(this.config);
     return {
       id: invite.id,
-      organizationId: invite.organizationId,
+      workspaceId: invite.workspaceId,
       email: invite.email,
       role: invite.role,
       signupUrl: `${origin}/signup?invite=${encodeURIComponent(invite.token ?? '')}`,
@@ -313,12 +313,12 @@ export class OrganizationService {
 
   async updateMember(
     actorUserId: string,
-    organizationId: string,
+    workspaceId: string,
     targetUserId: string,
-    role: OrgRole,
-  ): Promise<OrganizationMember> {
-    const { json } = await this.repo<OrganizationMember>(
-      `/internal/v1/organizations/${organizationId}/members/${targetUserId}`,
+    role: WorkspaceRole,
+  ): Promise<WorkspaceMember> {
+    const { json } = await this.repo<WorkspaceMember>(
+      `/internal/v1/workspaces/${workspaceId}/members/${targetUserId}`,
       {
         method: 'PATCH',
         body: { userId: actorUserId, role },
@@ -327,14 +327,14 @@ export class OrganizationService {
     return json;
   }
 
-  async removeMember(actorUserId: string, organizationId: string, targetUserId: string): Promise<void> {
+  async removeMember(actorUserId: string, workspaceId: string, targetUserId: string): Promise<void> {
     await this.repo(
-      `/internal/v1/organizations/${organizationId}/members/${targetUserId}?userId=${encodeURIComponent(actorUserId)}`,
+      `/internal/v1/workspaces/${workspaceId}/members/${targetUserId}?userId=${encodeURIComponent(actorUserId)}`,
       { method: 'DELETE' },
     );
     try {
       await this.repo(
-        `/internal/v1/repository-access?organizationId=${encodeURIComponent(organizationId)}&userId=${encodeURIComponent(targetUserId)}`,
+        `/internal/v1/repository-access?workspaceId=${encodeURIComponent(workspaceId)}&userId=${encodeURIComponent(targetUserId)}`,
         { method: 'DELETE' },
       );
     } catch {
@@ -342,18 +342,18 @@ export class OrganizationService {
     }
   }
 
-  async deleteAccount(userId: string): Promise<{ deletedOrganizationIds: string[] }> {
+  async deleteAccount(userId: string): Promise<{ deletedWorkspaceIds: string[] }> {
     const orgs = await this.listForUser(userId);
-    const deletedOrganizationIds: string[] = [];
+    const deletedWorkspaceIds: string[] = [];
     for (const org of orgs) {
       if (org.role === 'OWNER') {
         await this.delete(userId, org.id);
-        deletedOrganizationIds.push(org.id);
+        deletedWorkspaceIds.push(org.id);
       }
     }
     await this.repo(`/internal/v1/users/${userId}`, { method: 'DELETE' });
     await this.deleteGoTrueUser(userId);
-    return { deletedOrganizationIds };
+    return { deletedWorkspaceIds };
   }
 
   private async sendInviteEmail(email: string, signupUrl: string): Promise<void> {
@@ -393,9 +393,9 @@ export class OrganizationService {
     return json.items ?? [];
   }
 
-  async listRepositoryAccessForUser(userId: string, organizationId?: string): Promise<RepositoryAccess[]> {
+  async listRepositoryAccessForUser(userId: string, workspaceId?: string): Promise<RepositoryAccess[]> {
     const query = new URLSearchParams({ userId });
-    if (organizationId) query.set('organizationId', organizationId);
+    if (workspaceId) query.set('workspaceId', workspaceId);
     const { json } = await this.repo<{ items: RepositoryAccess[] }>(
       `/internal/v1/repository-access?${query.toString()}`,
     );
@@ -418,20 +418,20 @@ export class OrganizationService {
     await this.repo(`/internal/v1/repositories/${repositoryId}/access/${userId}`, { method: 'DELETE' });
   }
 
-  async permissionFor(userId: string, organizationId: string, repositoryId: string): Promise<RepoPermission> {
-    const org = await this.get(userId, organizationId, 'VIEWER');
-    const overrides = await this.listRepositoryAccessForUser(userId, organizationId);
+  async permissionFor(userId: string, workspaceId: string, repositoryId: string): Promise<RepoPermission> {
+    const org = await this.get(userId, workspaceId, 'VIEWER');
+    const overrides = await this.listRepositoryAccessForUser(userId, workspaceId);
     const override = overrides.find((item) => item.repositoryId === repositoryId);
     return effectiveRepoPermission(org.role, override?.permission);
   }
 
   async assertRepoAccess(
     userId: string,
-    organizationId: string,
+    workspaceId: string,
     repositoryId: string,
     required: RepoPermission,
   ): Promise<RepoPermission> {
-    return assertRepoPermission(await this.permissionFor(userId, organizationId, repositoryId), required);
+    return assertRepoPermission(await this.permissionFor(userId, workspaceId, repositoryId), required);
   }
 
   async withRepoPermissions(userId: string, items: Repository[]): Promise<RepositoryWithPermission[]> {
@@ -441,7 +441,7 @@ export class OrganizationService {
     const overrides = await this.listRepositoryAccessForUser(userId);
     const overrideByRepo = new Map(overrides.map((item) => [item.repositoryId, item.permission]));
     return items.flatMap((item) => {
-      const role = roleByOrg.get(item.organizationId);
+      const role = roleByOrg.get(item.workspaceId);
       if (!role) return [];
       const permission = effectiveRepoPermission(role, overrideByRepo.get(item.id));
       if (!hasRepoPermission(permission, 'VIEW')) return [];
@@ -450,8 +450,8 @@ export class OrganizationService {
   }
 
   async listAccessGrants(actorUserId: string, repository: Repository): Promise<RepositoryAccessGrant[]> {
-    await this.assertRepoAccess(actorUserId, repository.organizationId, repository.id, 'ADMIN');
-    const members = await this.listMembers(actorUserId, repository.organizationId);
+    await this.assertRepoAccess(actorUserId, repository.workspaceId, repository.id, 'ADMIN');
+    const members = await this.listMembers(actorUserId, repository.workspaceId);
     const overrides = await this.listRepositoryAccess(repository.id);
     const overrideByUser = new Map(overrides.map((item) => [item.userId, item.permission]));
     return members.map((member) => {
@@ -475,12 +475,12 @@ export class OrganizationService {
     targetUserId: string,
     permission: RepoPermission,
   ): Promise<RepositoryAccessGrant> {
-    await this.assertRepoAccess(actorUserId, repository.organizationId, repository.id, 'ADMIN');
-    const members = await this.listMembers(actorUserId, repository.organizationId);
+    await this.assertRepoAccess(actorUserId, repository.workspaceId, repository.id, 'ADMIN');
+    const members = await this.listMembers(actorUserId, repository.workspaceId);
     const target = members.find((member) => member.userId === targetUserId);
     if (!target) throw notFound('Member not found');
     if (target.role === 'OWNER' || target.role === 'ADMIN') {
-      throw badRequest('Organization owners and admins always have repository ADMIN');
+      throw badRequest('Workspace owners and admins always have repository ADMIN');
     }
     await this.upsertRepositoryAccess(repository.id, targetUserId, permission);
     return {
@@ -494,7 +494,7 @@ export class OrganizationService {
   }
 
   async clearAccessGrant(actorUserId: string, repository: Repository, targetUserId: string): Promise<void> {
-    await this.assertRepoAccess(actorUserId, repository.organizationId, repository.id, 'ADMIN');
+    await this.assertRepoAccess(actorUserId, repository.workspaceId, repository.id, 'ADMIN');
     await this.deleteRepositoryAccess(repository.id, targetUserId);
   }
 }

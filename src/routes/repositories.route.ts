@@ -19,20 +19,20 @@ import { callService } from '../services/upstream';
 const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
   // List SCM installations for an organization.
   fastify.get(
-    '/api/v1/organizations/:organizationId/scm',
+    '/api/v1/workspaces/:workspaceId/scm',
     {
       schema: {
         tags: ['scm'],
-        params: z.object({ organizationId: z.string().uuid() }),
+        params: z.object({ workspaceId: z.string().uuid() }),
         response: { 200: z.object({ items: z.array(scmInstallationSchema) }) },
       },
     },
     async (request) => {
       const principal = await fastify.authenticate(request);
-      await fastify.organizationService.get(principal.userId, request.params.organizationId, 'VIEWER');
+      await fastify.workspaceService.get(principal.userId, request.params.workspaceId, 'VIEWER');
       const result = await callService<{ items: ScmInstallation[] }>({
         baseUrl: fastify.config.scmServiceUrl,
-        path: `/internal/installations?organizationId=${request.params.organizationId}`,
+        path: `/internal/installations?workspaceId=${request.params.workspaceId}`,
         config: fastify.config,
         correlationId: request.correlationId,
       });
@@ -42,19 +42,19 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
 
   // Build the SCM install or configure URL for a popup (provider-generic).
   fastify.get(
-    '/api/v1/organizations/:organizationId/scm/:provider/install',
+    '/api/v1/workspaces/:workspaceId/scm/:provider/install',
     {
       schema: {
         tags: ['scm'],
-        params: z.object({ organizationId: z.string().uuid(), provider: scmProviderSchema }),
+        params: z.object({ workspaceId: z.string().uuid(), provider: scmProviderSchema }),
         querystring: z.object({ externalInstallationId: z.string().min(1).optional() }),
         response: { 200: z.object({ url: z.string().url(), slug: z.string(), configured: z.boolean(), label: z.string() }) },
       },
     },
     async (request) => {
       const principal = await fastify.authenticate(request);
-      await fastify.organizationService.get(principal.userId, request.params.organizationId, 'MEMBER');
-      const params = new URLSearchParams({ organizationId: request.params.organizationId });
+      await fastify.workspaceService.get(principal.userId, request.params.workspaceId, 'MEMBER');
+      const params = new URLSearchParams({ workspaceId: request.params.workspaceId });
       if (request.query.externalInstallationId) {
         params.set('externalInstallationId', request.query.externalInstallationId);
       }
@@ -73,11 +73,11 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
 
   // Finalize an SCM installation and ingest selected repositories.
   fastify.post(
-    '/api/v1/organizations/:organizationId/scm/:provider',
+    '/api/v1/workspaces/:workspaceId/scm/:provider',
     {
       schema: {
         tags: ['scm'],
-        params: z.object({ organizationId: z.string().uuid(), provider: scmProviderSchema }),
+        params: z.object({ workspaceId: z.string().uuid(), provider: scmProviderSchema }),
         body: z.object({
           externalInstallationId: z.string().min(1).optional(),
           accountLogin: z.string().min(1).optional(),
@@ -87,15 +87,15 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (request, reply) => {
       const principal = await fastify.authenticate(request);
-      await fastify.organizationService.get(principal.userId, request.params.organizationId, 'MEMBER');
+      await fastify.workspaceService.get(principal.userId, request.params.workspaceId, 'MEMBER');
       const callback = request.body.callback ?? {};
       const callbackInstallationId =
         typeof callback.installation_id === 'string' ? callback.installation_id : undefined;
-      await fastify.organizationService.assertScmInstallationLimit(
-        request.params.organizationId,
+      await fastify.workspaceService.assertScmInstallationLimit(
+        request.params.workspaceId,
         request.body.externalInstallationId ?? callbackInstallationId,
       );
-      await fastify.organizationService.assertRepositoryLimit(request.params.organizationId);
+      await fastify.workspaceService.assertRepositoryLimit(request.params.workspaceId);
       const result = await callService({
         baseUrl: fastify.config.scmServiceUrl,
         path: `/internal/installations/${request.params.provider}`,
@@ -103,7 +103,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
         config: fastify.config,
         correlationId: request.correlationId,
         body: {
-          organizationId: request.params.organizationId,
+          workspaceId: request.params.workspaceId,
           externalInstallationId: request.body.externalInstallationId,
           accountLogin: request.body.accountLogin,
           callback: request.body.callback,
@@ -116,18 +116,18 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
 
   // Disconnect one SCM installation (one GitHub org/user App install).
   fastify.delete(
-    '/api/v1/organizations/:organizationId/scm/installations/:installationId',
+    '/api/v1/workspaces/:workspaceId/scm/installations/:installationId',
     {
       schema: {
         tags: ['scm'],
-        params: z.object({ organizationId: z.string().uuid(), installationId: z.string().uuid() }),
+        params: z.object({ workspaceId: z.string().uuid(), installationId: z.string().uuid() }),
       },
     },
     async (request, reply) => {
       const principal = await fastify.authenticate(request);
-      await fastify.organizationService.disconnectInstallation(
+      await fastify.workspaceService.disconnectInstallation(
         principal.userId,
-        request.params.organizationId,
+        request.params.workspaceId,
         request.params.installationId,
       );
       return reply.code(204).send();
@@ -140,19 +140,19 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     {
       schema: {
         tags: ['repositories'],
-        querystring: paginationQuerySchema.extend({ organizationId: z.string().uuid().optional() }),
+        querystring: paginationQuerySchema.extend({ workspaceId: z.string().uuid().optional() }),
         response: { 200: paginatedResponseSchema(repositoryWithPermissionSchema) },
       },
     },
     async (request) => {
       const principal = await fastify.authenticate(request);
-      if (!request.query.organizationId) {
-        const orgs = await fastify.organizationService.listForUser(principal.userId);
+      if (!request.query.workspaceId) {
+        const orgs = await fastify.workspaceService.listForUser(principal.userId);
         if (orgs.length === 0) {
           return { items: [], page: request.query.page, pageSize: request.query.pageSize, total: 0 };
         }
         const params = new URLSearchParams({
-          organizationIds: orgs.map((org) => org.id).join(','),
+          workspaceIds: orgs.map((org) => org.id).join(','),
           page: String(request.query.page),
           pageSize: String(request.query.pageSize),
         });
@@ -162,17 +162,17 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
           config: fastify.config,
           correlationId: request.correlationId,
         });
-        const items = await fastify.organizationService.withRepoPermissions(principal.userId, result.json.items);
+        const items = await fastify.workspaceService.withRepoPermissions(principal.userId, result.json.items);
         return { ...result.json, items, total: items.length };
       }
-      await fastify.organizationService.get(principal.userId, request.query.organizationId, 'VIEWER');
+      await fastify.workspaceService.get(principal.userId, request.query.workspaceId, 'VIEWER');
       const result = await callService<{ items: Repository[]; page: number; pageSize: number; total: number }>({
         baseUrl: fastify.config.repositoryServiceUrl,
-        path: `/api/v1/repositories?organizationId=${request.query.organizationId}&page=${request.query.page}&pageSize=${request.query.pageSize}`,
+        path: `/api/v1/repositories?workspaceId=${request.query.workspaceId}&page=${request.query.page}&pageSize=${request.query.pageSize}`,
         config: fastify.config,
         correlationId: request.correlationId,
       });
-      const items = await fastify.organizationService.withRepoPermissions(principal.userId, result.json.items);
+      const items = await fastify.workspaceService.withRepoPermissions(principal.userId, result.json.items);
       return { ...result.json, items, total: items.length };
     },
   );
@@ -184,14 +184,14 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       schema: {
         tags: ['repositories'],
         params: z.object({ repositoryId: z.string().uuid() }),
-        querystring: z.object({ organizationId: z.string().uuid().optional() }),
+        querystring: z.object({ workspaceId: z.string().uuid().optional() }),
         response: { 200: repositoryWithPermissionSchema },
       },
     },
     async (request) => {
       const principal = await fastify.authenticate(request);
-      const qs = request.query.organizationId
-        ? `?organizationId=${request.query.organizationId}`
+      const qs = request.query.workspaceId
+        ? `?workspaceId=${request.query.workspaceId}`
         : '';
       const result = await callService<Repository>({
         baseUrl: fastify.config.repositoryServiceUrl,
@@ -199,13 +199,13 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
         config: fastify.config,
         correlationId: request.correlationId,
       });
-      const permission = await fastify.organizationService.assertRepoAccess(
+      const permission = await fastify.workspaceService.assertRepoAccess(
         principal.userId,
-        result.json.organizationId,
+        result.json.workspaceId,
         result.json.id,
         'VIEW',
       );
-      if (request.query.organizationId && request.query.organizationId !== result.json.organizationId) {
+      if (request.query.workspaceId && request.query.workspaceId !== result.json.workspaceId) {
         throw badRequest('Repository does not belong to the requested organization');
       }
       return { ...result.json, permission };
@@ -219,14 +219,14 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       schema: {
         tags: ['repositories'],
         params: z.object({ repositoryId: z.string().uuid() }),
-        querystring: z.object({ organizationId: z.string().uuid().optional() }),
+        querystring: z.object({ workspaceId: z.string().uuid().optional() }),
         response: { 200: z.object({ items: z.array(repositoryAccessGrantSchema) }) },
       },
     },
     async (request) => {
       const principal = await fastify.authenticate(request);
-      const qs = request.query.organizationId
-        ? `?organizationId=${request.query.organizationId}`
+      const qs = request.query.workspaceId
+        ? `?workspaceId=${request.query.workspaceId}`
         : '';
       const result = await callService<Repository>({
         baseUrl: fastify.config.repositoryServiceUrl,
@@ -234,7 +234,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
         config: fastify.config,
         correlationId: request.correlationId,
       });
-      const items = await fastify.organizationService.listAccessGrants(principal.userId, result.json);
+      const items = await fastify.workspaceService.listAccessGrants(principal.userId, result.json);
       return { items };
     },
   );
@@ -246,15 +246,15 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       schema: {
         tags: ['repositories'],
         params: z.object({ repositoryId: z.string().uuid(), userId: z.string().uuid() }),
-        querystring: z.object({ organizationId: z.string().uuid().optional() }),
+        querystring: z.object({ workspaceId: z.string().uuid().optional() }),
         body: updateRepositoryAccessBodySchema,
         response: { 200: repositoryAccessGrantSchema },
       },
     },
     async (request) => {
       const principal = await fastify.authenticate(request);
-      const qs = request.query.organizationId
-        ? `?organizationId=${request.query.organizationId}`
+      const qs = request.query.workspaceId
+        ? `?workspaceId=${request.query.workspaceId}`
         : '';
       const result = await callService<Repository>({
         baseUrl: fastify.config.repositoryServiceUrl,
@@ -262,7 +262,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
         config: fastify.config,
         correlationId: request.correlationId,
       });
-      return fastify.organizationService.setAccessGrant(
+      return fastify.workspaceService.setAccessGrant(
         principal.userId,
         result.json,
         request.params.userId,
@@ -278,13 +278,13 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       schema: {
         tags: ['repositories'],
         params: z.object({ repositoryId: z.string().uuid(), userId: z.string().uuid() }),
-        querystring: z.object({ organizationId: z.string().uuid().optional() }),
+        querystring: z.object({ workspaceId: z.string().uuid().optional() }),
       },
     },
     async (request, reply) => {
       const principal = await fastify.authenticate(request);
-      const qs = request.query.organizationId
-        ? `?organizationId=${request.query.organizationId}`
+      const qs = request.query.workspaceId
+        ? `?workspaceId=${request.query.workspaceId}`
         : '';
       const result = await callService<Repository>({
         baseUrl: fastify.config.repositoryServiceUrl,
@@ -292,7 +292,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
         config: fastify.config,
         correlationId: request.correlationId,
       });
-      await fastify.organizationService.clearAccessGrant(principal.userId, result.json, request.params.userId);
+      await fastify.workspaceService.clearAccessGrant(principal.userId, result.json, request.params.userId);
       return reply.code(204).send();
     },
   );
@@ -304,26 +304,26 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       schema: {
         tags: ['analysis'],
         params: z.object({ repositoryId: z.string().uuid() }),
-        querystring: z.object({ organizationId: z.string().uuid() }),
+        querystring: z.object({ workspaceId: z.string().uuid() }),
       },
     },
     async (request, reply) => {
       const principal = await fastify.authenticate(request);
-      await fastify.organizationService.assertRepoAccess(
+      await fastify.workspaceService.assertRepoAccess(
         principal.userId,
-        request.query.organizationId,
+        request.query.workspaceId,
         request.params.repositoryId,
         'ANALYZE',
       );
       if ((request.body as { trigger?: string } | undefined)?.trigger !== 'WEBHOOK') {
-        await fastify.organizationService.assertManualAnalysisLimit(
-          request.query.organizationId,
+        await fastify.workspaceService.assertManualAnalysisLimit(
+          request.query.workspaceId,
           request.params.repositoryId,
         );
       }
       const result = await callService({
         baseUrl: fastify.config.repositoryServiceUrl,
-        path: `/api/v1/repositories/${request.params.repositoryId}/analysis?organizationId=${request.query.organizationId}`,
+        path: `/api/v1/repositories/${request.params.repositoryId}/analysis?workspaceId=${request.query.workspaceId}`,
         method: 'POST',
         config: fastify.config,
         correlationId: request.correlationId,
@@ -341,7 +341,7 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
       schema: {
         tags: ['analysis'],
         querystring: z.object({
-          organizationId: z.string().uuid().optional(),
+          workspaceId: z.string().uuid().optional(),
           repositoryId: z.string().uuid().optional(),
         }),
         response: { 200: z.object({ items: z.array(analysisRunSchema) }) },
@@ -349,18 +349,18 @@ const repositoriesRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (request) => {
       const principal = await fastify.authenticate(request);
-      if (!request.query.organizationId || !request.query.repositoryId) {
+      if (!request.query.workspaceId || !request.query.repositoryId) {
         return { items: [] };
       }
-      await fastify.organizationService.assertRepoAccess(
+      await fastify.workspaceService.assertRepoAccess(
         principal.userId,
-        request.query.organizationId,
+        request.query.workspaceId,
         request.query.repositoryId,
         'VIEW',
       );
       const result = await callService<{ items: AnalysisRun[] }>({
         baseUrl: fastify.config.repositoryServiceUrl,
-        path: `/api/v1/analysis?organizationId=${request.query.organizationId}&repositoryId=${request.query.repositoryId}`,
+        path: `/api/v1/analysis?workspaceId=${request.query.workspaceId}&repositoryId=${request.query.repositoryId}`,
         config: fastify.config,
         correlationId: request.correlationId,
       });

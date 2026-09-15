@@ -2,11 +2,11 @@
 export declare const FREE_PLAN: {
     readonly id: "free";
     readonly name: "Free";
-    readonly maxOwnedOrganizations: 2;
-    readonly maxRepositoriesPerOrganization: 20;
-    readonly maxMembersPerOrganization: 5;
-    readonly maxPendingInvitesPerOrganization: 10;
-    readonly maxScmInstallationsPerOrganization: 1;
+    readonly maxOwnedWorkspaces: 2;
+    readonly maxRepositoriesPerWorkspace: 20;
+    readonly maxMembersPerWorkspace: 5;
+    readonly maxPendingInvitesPerWorkspace: 10;
+    readonly maxScmInstallationsPerWorkspace: 3;
     readonly maxManualAnalysisRunsPerRepositoryPerDay: 10;
 };
 export type FreePlan = typeof FREE_PLAN;
@@ -15,10 +15,10 @@ export type PlanId = FreePlan['id'];
 export declare const CURRENT_PLAN: {
     readonly id: "free";
     readonly name: "Free";
-    readonly maxOwnedOrganizations: 2;
-    readonly maxRepositoriesPerOrganization: 20;
-    readonly maxMembersPerOrganization: 5;
-    readonly maxPendingInvitesPerOrganization: 10;
-    readonly maxScmInstallationsPerOrganization: 1;
+    readonly maxOwnedWorkspaces: 2;
+    readonly maxRepositoriesPerWorkspace: 20;
+    readonly maxMembersPerWorkspace: 5;
+    readonly maxPendingInvitesPerWorkspace: 10;
+    readonly maxScmInstallationsPerWorkspace: 3;
     readonly maxManualAnalysisRunsPerRepositoryPerDay: 10;
 };

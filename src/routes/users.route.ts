@@ -16,8 +16,8 @@ const usersRoute: FastifyPluginAsyncZod = async (fastify) => {
     async (request) => {
       const principal = await fastify.authenticate(request);
       return (
-        (await fastify.organizationService.getUser(principal.userId)) ??
-        fastify.organizationService.ensureUser({
+        (await fastify.workspaceService.getUser(principal.userId)) ??
+        fastify.workspaceService.ensureUser({
           id: principal.userId,
           email: principal.email,
           displayName: principal.displayName,
@@ -44,19 +44,19 @@ const usersRoute: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
-  // Delete the account, owned organizations, and the GoTrue user.
+  // Delete the account, owned workspaces, and the GoTrue user.
   fastify.delete(
     '/api/v1/users/me',
     {
       schema: {
         tags: ['users'],
         operationId: 'deleteMe',
-        response: { 200: z.object({ deletedOrganizationIds: z.array(z.string().uuid()) }) },
+        response: { 200: z.object({ deletedWorkspaceIds: z.array(z.string().uuid()) }) },
       },
     },
     async (request, reply) => {
       const principal = await fastify.authenticate(request);
-      const result = await fastify.organizationService.deleteAccount(principal.userId);
+      const result = await fastify.workspaceService.deleteAccount(principal.userId);
       return reply.code(200).send(result);
     },
   );

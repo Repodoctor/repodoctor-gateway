@@ -7,7 +7,8 @@ const analysis_1 = require("./analysis");
 exports.scmProviderSchema = zod_1.z.enum(['github', 'gitlab', 'bitbucket', 'azure_devops']);
 exports.repositorySchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
-    organizationId: zod_1.z.string().uuid(),
+    workspaceId: zod_1.z.string().uuid(),
+    workspaceName: zod_1.z.string().min(1).default('Workspace'),
     scmProvider: exports.scmProviderSchema,
     scmRepositoryId: zod_1.z.string().min(1),
     installationId: zod_1.z.string().min(1),
@@ -22,7 +23,7 @@ exports.repositorySchema = zod_1.z.object({
     updatedAt: zod_1.z.string().datetime(),
 });
 exports.repositoryAccessSchema = zod_1.z.object({
-    organizationId: zod_1.z.string().uuid(),
+    workspaceId: zod_1.z.string().uuid(),
     repositoryId: zod_1.z.string().uuid(),
     userId: zod_1.z.string().uuid(),
     permission: auth_1.repoPermissionSchema,
@@ -45,7 +46,7 @@ exports.repositoryWithPermissionSchema = exports.repositorySchema.extend({
 });
 exports.scmInstallationSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
-    organizationId: zod_1.z.string().uuid(),
+    workspaceId: zod_1.z.string().uuid(),
     provider: exports.scmProviderSchema,
     externalInstallationId: zod_1.z.string().min(1),
     accountLogin: zod_1.z.string().min(1),
