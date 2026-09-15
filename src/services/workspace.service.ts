@@ -27,6 +27,7 @@ import { deleteAuthUser, inviteAuthUser } from './supabase-admin';
 
 export class WorkspaceService {
   private readonly ensuredUsers = new Map<string, { user: User; at: number }>();
+  private readonly ensuringUsers = new Map<string, Promise<User>>();
 
   constructor(private readonly config: AppConfig) {}
 
@@ -52,13 +53,22 @@ export class WorkspaceService {
       if (cached && Date.now() - cached.at < 5 * 60_000) {
         return cached.user;
       }
+      const inflight = this.ensuringUsers.get(key);
+      if (inflight) return inflight;
     }
-    const { json } = await this.repo<User>('/internal/v1/users/ensure', {
+    const pending = this.repo<User>('/internal/v1/users/ensure', {
       method: 'POST',
       body: input,
+    }).then(({ json }) => {
+      this.ensuredUsers.set(key, { user: json, at: Date.now() });
+      return json;
     });
-    this.ensuredUsers.set(key, { user: json, at: Date.now() });
-    return json;
+    this.ensuringUsers.set(key, pending);
+    try {
+      return await pending;
+    } finally {
+      this.ensuringUsers.delete(key);
+    }
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
